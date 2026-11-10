@@ -1,0 +1,10 @@
+package-as: DernierRempart
+
+ignore:
+  - tests
+  - docs
+  - tools
+  - README.md
+  - CLAUDE.md
+  - .luacheckrc
+  - .github

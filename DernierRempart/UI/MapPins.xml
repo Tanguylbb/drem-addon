@@ -1,0 +1,19 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\..\FrameXML\UI.xsd">
+  <!-- Épingle d'un membre de la guilde sur la carte du monde. -->
+  <Frame name="DernierRempartMapPinTemplate" mixin="DernierRempartMapPinMixin" virtual="true" enableMouse="true">
+    <Size x="14" y="14"/>
+    <Layers>
+      <Layer level="ARTWORK">
+        <Texture parentKey="Dot" file="Interface\AddOns\DernierRempart\Media\dot" setAllPoints="true"/>
+      </Layer>
+      <Layer level="OVERLAY">
+        <Texture parentKey="Ring" file="Interface\AddOns\DernierRempart\Media\ring" setAllPoints="true"/>
+      </Layer>
+    </Layers>
+    <Scripts>
+      <OnLoad method="OnLoad"/>
+      <OnEnter method="OnMouseEnter"/>
+      <OnLeave method="OnMouseLeave"/>
+    </Scripts>
+  </Frame>
+</Ui>
