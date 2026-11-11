@@ -13,6 +13,10 @@ globals = {
 }
 
 read_globals = {
+  -- Client Forever (Midnight) : garde-fous, noms et diagnostic
+  "C_RestrictedActions", "InCombatLockdown", "InputUtil", "debugstack", "GetBuildInfo",
+  "GetGuildRosterShowOffline", "SetGuildRosterShowOffline", "UnitGUID", "issecretvalue",
+  "UnitFullName", "GetUnitName", "GetPlayerLink",
   -- Cadres et interface
   "CreateFrame", "UIParent", "Minimap", "GameTooltip", "WorldMapFrame", "UISpecialFrames",
   "DEFAULT_CHAT_FRAME", "ChatFrame1", "STANDARD_TEXT_FONT", "RAID_CLASS_COLORS", "CreateColor",

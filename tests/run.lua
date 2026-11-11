@@ -6,7 +6,7 @@ local H = require("harness")
 
 local files = {
   "test_core", "test_store", "test_comm", "test_sync", "test_calendar",
-  "test_crafts", "test_bridge", "test_map", "test_ui",
+  "test_crafts", "test_bridge", "test_map", "test_ui", "test_forever",
 }
 
 local only = arg[1]

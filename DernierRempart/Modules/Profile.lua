@@ -120,7 +120,35 @@ function Profile:OnLogin()
     pcall(DR.On, DR, ev, function() self.ScanSoon() end)
   end
   DR:Listen("GUILD_READY", function() self.ScanSoon() end)
+  DR:Listen("PLAYER_RENAMED", function(old) self:Forget(old); self.ScanSoon() end)
+  DR:Listen("ROSTER_UPDATED", function() self:ForgetShortNames() end)
   DR.After(5, function() self:Scan("connexion") end)
+end
+
+-- Retire un perso enregistré sous un nom incomplet (le prénom seul, lu avant
+-- que la liste de guilde ne donne le vrai nom), ici et chez les autres.
+function Profile:Forget(name)
+  if not name or name == DR.playerName then return end
+  local pref = DR.db.prefs[name]
+  if pref and DR.playerName and not DR.db.prefs[DR.playerName] then DR.db.prefs[DR.playerName] = pref end
+  DR.db.prefs[name] = nil
+  DR.db.myChars[name] = nil
+  if not Store:IsReady() then return end
+  local c = Store:Get("chars", name)
+  if c and c.acc == DR.db.accountId then Store:Delete("chars", name) end
+  for _, r in ipairs(Store:List("recipes", function(rec) return rec.c == name end)) do
+    Store:Delete("recipes", Store.KeyOf("recipes", r))
+  end
+end
+
+-- Sur Forever un nom complet a toujours un espace : une fiche de ce compte
+-- sans espace vient d'une version qui ne lisait que le prénom.
+function Profile:ForgetShortNames()
+  if not Util.forever or self.cleaned then return end
+  self.cleaned = true
+  for name in pairs(Util.Copy(DR.db.myChars)) do
+    if not name:find(" ", 1, true) then self:Forget(name) end
+  end
 end
 
 -- Persos de mon compte (lus en jeu), du plus récent au plus ancien.

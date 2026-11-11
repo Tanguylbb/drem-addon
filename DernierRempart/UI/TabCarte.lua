@@ -52,6 +52,13 @@ function Tab:Create(f, width, height)
   local world = W.Button(f, "Ouvrir la carte du monde", "slate", 220, 30)
   world:SetPoint("TOPRIGHT", canvas, "BOTTOMRIGHT", 0, -10)
   world:SetScript("OnClick", function()
+    -- Ouvrir un panneau de Blizzard depuis un add-on est refusé en combat et
+    -- à la manette : on le dit au lieu d'essayer.
+    local why = DR.Guard.PanelLocked()
+    if why then
+      DR.UI:Toast("Impossible " .. why .. " : ouvre la carte avec ta touche habituelle.", "warn")
+      return
+    end
     if ToggleWorldMap then ToggleWorldMap() elseif WorldMapFrame then WorldMapFrame:Show() end
     if self.mapID and WorldMapFrame and WorldMapFrame.SetMapID then WorldMapFrame:SetMapID(self.mapID) end
   end)

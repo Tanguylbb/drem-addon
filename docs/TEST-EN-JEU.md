@@ -14,6 +14,9 @@ capture) ou « bizarre ».
       noter le nombre (il doit valoir 16001, comme dans le `.toc`).
 - [ ] En jeu, le chat affiche « [Dernier Rempart] chargé. /rempart pour ouvrir. »
 - [ ] Le blason apparaît au bord de la minicarte ; il se déplace en le glissant.
+- [ ] `/reload`, puis `/rempart rapport` : la ligne « Sauvegarde » dit **relue**,
+      et « Perso » donne le nom complet « Prénom Nom ». Noter les lignes
+      « Erreur » et « Refus » s'il y en a.
 
 ## 1. Fenêtre et style (3 min)
 
@@ -65,6 +68,8 @@ capture) ou « bizarre ».
 - [ ] Le point en haut de la fenêtre passe au vert : « Données du site : il y a … ».
 
 ## À remonter
+
+- Le résultat de `/rempart rapport` en fin de test (capture d'écran).
 
 - Erreurs Lua (activer `/console scriptErrors 1`) : capture du message.
 - Ce qui est lent, illisible ou mal placé.

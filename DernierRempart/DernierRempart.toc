@@ -3,7 +3,7 @@
 ## Notes: Sorties et inscriptions, artisans de la guilde, carte des membres. Relié à dernier-rempart.eu.
 ## Notes-frFR: Sorties et inscriptions, artisans de la guilde, carte des membres. Relié à dernier-rempart.eu.
 ## Author: Guilde Dernier Rempart
-## Version: 0.2.0
+## Version: 0.2.1
 ## SavedVariables: DernierRempartDB
 ## IconTexture: Interface\AddOns\DernierRempart\Media\minimap
 ## AddonCompartmentFunc: DernierRempart_OnAddonCompartmentClick
@@ -15,6 +15,7 @@
 # Socle
 Core\Init.lua
 Core\Util.lua
+Core\Guard.lua
 Core\Json.lua
 Core\Base64.lua
 Core\Store.lua

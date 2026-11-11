@@ -13,7 +13,7 @@ DR.SITE = "dernier-rempart.eu"
 local function readVersion()
   local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
   local v = getMeta and getMeta(ADDON, "Version")
-  if not v or v == "" or v:find("@", 1, true) then v = "0.2.0" end
+  if not v or v == "" or v:find("@", 1, true) then v = "0.2.1" end
   return v
 end
 DR.version = readVersion()
@@ -34,9 +34,14 @@ function DR:On(event, fn)
   list[#list + 1] = fn
 end
 
+-- Une erreur dans un module ne casse pas les autres : elle est gardée pour
+-- /rempart rapport (et affichée en mode débogage).
 local function safeCall(fn, ...)
   local ok, err = pcall(fn, ...)
-  if not ok then DR:Debug("Erreur : " .. tostring(err)) end
+  if not ok then
+    if DR.Guard then DR.Guard.RecordError(err) end
+    DR:Debug("Erreur : " .. tostring(err))
+  end
 end
 
 eventFrame:SetScript("OnEvent", function(_, event, ...)
@@ -160,6 +165,11 @@ function DR:InitDB()
   db.guilds = db.guilds or {}
   db.myChars = db.myChars or {}   -- persos du compte, lus en jeu
   db.prefs = db.prefs or {}       -- préférences par perso (rôle par défaut)
+  -- Témoin de relecture : la bêta de Forever écrivait la sauvegarde sans la
+  -- relire. /rempart rapport dit si elle est revenue de la session d'avant.
+  db.meta = db.meta or {}
+  self.savedLoaded = (db.meta.runs or 0) > 0
+  db.meta.runs = (db.meta.runs or 0) + 1
   _G.DernierRempartDB = db
   self.db = db
 end
@@ -190,12 +200,22 @@ DR:On("ADDON_LOADED", function(_, name)
 end)
 
 DR:On("PLAYER_LOGIN", function()
-  DR.playerName = DR.Util.FullName(UnitName("player"))
+  DR.playerName = DR.Util.PlayerName() or DR.Util.FullName(UnitName("player"))
   for _, mod in ipairs(DR.modules) do
     if mod.OnLogin then safeCall(mod.OnLogin, mod) end
   end
   DR:Print("chargé. |cffFFFFFF/rempart|r pour ouvrir.")
 end)
+
+-- La liste de guilde donne le vrai nom du perso connecté quand le jeu ne
+-- l'avait pas livré en entier à la connexion (Forever).
+function DR:SetPlayerName(full)
+  local old = self.playerName
+  if not full or full == old then return end
+  self.playerName = full
+  self.Util.SetPlayerName(full)
+  self:Emit("PLAYER_RENAMED", old, full)
+end
 
 ---------------------------------------------------------------------------
 -- Commande /rempart
@@ -207,6 +227,7 @@ local HELP = {
   "/rempart position : partager ou non ta position avec la guilde",
   "/rempart minimap : afficher ou cacher le bouton de la minicarte",
   "/rempart version : version de l'add-on",
+  "/rempart rapport : l'état de l'add-on, à envoyer si quelque chose cloche",
 }
 
 function DR:HandleSlash(input)
@@ -229,6 +250,8 @@ function DR:HandleSlash(input)
     DR:Emit("SETTINGS_CHANGED", "minimap")
   elseif cmd == "version" then
     DR:Print("version " .. DR.version .. " (protocole " .. DR.PROTOCOL .. ").")
+  elseif cmd == "rapport" or cmd == "report" or cmd == "diag" then
+    for _, line in ipairs(DR.Guard.Report()) do DR:Print(line) end
   elseif cmd == "debug" then
     DR.db.settings.debug = not DR.db.settings.debug
     DR:Print("mode débogage : " .. (DR.db.settings.debug and "oui" or "non"))

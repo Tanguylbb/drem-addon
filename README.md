@@ -71,8 +71,18 @@ nombre dans `DernierRempart/DernierRempart.toc`.
 | `/rempart position` | Partager ou non sa position |
 | `/rempart minimap` | Afficher ou cacher le bouton de la minicarte |
 | `/rempart version` | Version de l'add-on |
+| `/rempart rapport` | État de l'add-on, à envoyer si quelque chose cloche |
 
 Clic sur le blason de la minicarte : ouvrir. Clic droit : Artisans.
+
+## Particularités de Forever
+
+Un perso s'appelle « Prénom Nom », sans royaume : c'est ce nom qui sert
+partout (inscriptions, fiches, recettes). Une guilde s'étale sur plusieurs
+royaumes liés et tout le monde partage la même base. L'add-on demande au jeu
+les membres hors ligne de la liste de guilde, pour reconnaître les officiers
+déconnectés. Ce que le client refuse aux add-ons est détaillé dans
+[docs/RETRO-INGENIERIE.md](docs/RETRO-INGENIERIE.md).
 
 ## Pour les officiers
 
@@ -86,15 +96,15 @@ Clic sur le blason de la minicarte : ouvrir. Clic droit : Artisans.
 ## Développer
 
 ```
-lua5.1 tests/run.lua          # 78 tests hors jeu, avec un faux client WoW
+lua5.1 tests/run.lua          # 94 tests hors jeu, avec un faux client WoW
 bash tests/interop/run.sh     # le PHP du site et l'add-on se relisent
 luacheck DernierRempart       # vérification statique
 ```
 
 Le faux client (`tests/harness.lua`) charge l'add-on comme le jeu, plusieurs
 fois, et fait circuler les messages de guilde entre les « joueurs » : la
-synchro, les droits officiers, la pause en combat et le Pont sont testés de
-bout en bout. Ce qui demande le vrai jeu est dans
+synchro, les droits officiers, la pause en combat, les noms « Prénom Nom »
+de Forever et le Pont sont testés de bout en bout. Ce qui demande le vrai jeu est dans
 [docs/TEST-EN-JEU.md](docs/TEST-EN-JEU.md).
 
 ```

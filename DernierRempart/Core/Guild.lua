@@ -10,6 +10,11 @@ Guild.online = 0
 Guild.DEFAULT_OFFICER_RANK = 1 -- rangs 0 (chef) et 1 (officiers)
 
 local function requestRoster()
+  -- Les membres hors ligne doivent être dans la liste : sans eux, une sortie
+  -- créée par un officier déconnecté serait refusée (rang inconnu).
+  if GetGuildRosterShowOffline and SetGuildRosterShowOffline and not GetGuildRosterShowOffline() then
+    pcall(SetGuildRosterShowOffline, true)
+  end
   if C_GuildInfo and C_GuildInfo.GuildRoster then
     C_GuildInfo.GuildRoster()
   elseif GuildRoster then
@@ -20,6 +25,10 @@ end
 function Guild:OnLogin()
   DR:On("GUILD_ROSTER_UPDATE", function() self:ScheduleRebuild() end)
   DR:On("PLAYER_GUILD_UPDATE", function() self:CheckGuild() end)
+  -- La liste n'est pas relue en combat (noms « secrets ») : on rattrape après.
+  DR:On("PLAYER_REGEN_ENABLED", function()
+    if self.rebuildPending then self.rebuildPending = nil; self:ScheduleRebuild() end
+  end)
   self.ScheduleRebuild = DR.Debounce(1, function() self:Rebuild() end)
   -- Après le démarrage de tous les modules, pour qu'ils entendent GUILD_READY.
   DR.After(0.5, function() self:CheckGuild() end)
@@ -45,7 +54,9 @@ function Guild:CheckGuild()
     return
   end
   self.myRankName, self.myRankIndex = rankName, rankIndex
-  local key = name .. "-" .. ((realm and realm ~= "") and realm or Util.MyRealm())
+  -- Les royaumes liés de Forever ne diffèrent que par leurs numéros : sans
+  -- eux, tous les persos de la guilde retrouvent la même base.
+  local key = name .. "-" .. Util.RealmFamily((realm and realm ~= "") and realm or Util.MyRealm())
   if key ~= self.key then
     self.key = key
     self.name = name
@@ -55,26 +66,53 @@ function Guild:CheckGuild()
   end
 end
 
+-- Nom complet d'une ligne de la liste : "Prénom Nom" sur Forever (le royaume
+-- éventuel derrière est retiré), "Nom-Royaume" ailleurs.
+local function rosterName(name)
+  local head = name:match("^([^%-]+)")
+  if head and head:find(" ", 1, true) then return (head:gsub("%s+", " "):match("^%s*(.-)%s*$")) end
+  return Util.FullName(name)
+end
+
 function Guild:Rebuild()
   if not IsInGuild() then return end
+  if InCombatLockdown and InCombatLockdown() then
+    self.rebuildPending = true
+    return
+  end
   local n = GetNumGuildMembers()
-  local members, online = {}, 0
+  local members, online, names = {}, 0, {}
+  local myGuid = UnitGUID and UnitGUID("player")
+  if Util.IsSecret(myGuid) then myGuid = nil end
+  local mine
   for i = 1, n do
     local name, rankName, rankIndex, level, classLocal, zone, note, _, isOnline,
-      status, classFile = GetGuildRosterInfo(i)
-    if name then
-      local full = Util.FullName(name)
-      members[full] = {
-        name = full, rank = rankName, rankIndex = rankIndex, level = level,
-        className = classLocal, class = classFile, zone = zone, online = isOnline and true or false,
-        status = status, note = note,
-      }
-      if isOnline then online = online + 1 end
+      status, classFile, _, _, _, _, _, guid = GetGuildRosterInfo(i)
+    if type(name) == "string" and not Util.IsSecret(name) then
+      local full = rosterName(name)
+      if full then
+        members[full] = {
+          name = full, rank = rankName, rankIndex = rankIndex, level = level,
+          className = classLocal, class = classFile, zone = zone, online = isOnline and true or false,
+          status = status, note = note,
+        }
+        names[#names + 1] = full
+        if isOnline then online = online + 1 end
+        if myGuid and guid == myGuid then mine = full end
+      end
     end
   end
   self.members = members
   self.online = online
-  self.count = n
+  self.count = #names
+  Util.SetKnownNames(names)
+  -- Mon vrai nom dans la guilde : par l'identifiant du perso, sinon par le nom
+  -- (le jeu ne donne parfois que le prénom du perso connecté).
+  if not mine and DR.playerName and not members[DR.playerName] then
+    local resolved = Util.FullName(DR.playerName)
+    if resolved and members[resolved] then mine = resolved end
+  end
+  if mine and mine ~= DR.playerName then DR:SetPlayerName(mine) end
   -- Mon rang peut avoir changé.
   local me = members[DR.playerName]
   if me then self.myRankIndex, self.myRankName = me.rankIndex, me.rank end

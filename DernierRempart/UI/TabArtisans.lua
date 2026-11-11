@@ -355,7 +355,11 @@ function Tab:WishMenu(anchor, o)
   end
   if o.link then
     items[#items + 1] = { text = "Mettre le lien dans le chat", func = function()
-      if ChatEdit_InsertLink then ChatEdit_InsertLink(o.link) end
+      if ChatEdit_InsertLink then
+        ChatEdit_InsertLink(o.link)
+      elseif ChatFrameUtil and ChatFrameUtil.InsertLink then
+        ChatFrameUtil.InsertLink(o.link)
+      end
     end }
   end
   if #items == 0 then items[1] = { text = "Rien à faire ici", disabled = true } end

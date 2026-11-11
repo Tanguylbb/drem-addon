@@ -92,7 +92,7 @@ En jeu, seuls les officiers créent et modifient les sorties.
 | Champ | Sens |
 |-------|------|
 | `e`   | Id de la sortie. |
-| `c`   | Perso, nom complet `Nom-Royaume`. |
+| `c`   | Perso, nom complet. Sur Forever : `Prénom Nom`, sans royaume. |
 | `cl`  | Classe (`PALADIN`, `MAGE`…). |
 | `r`   | Rôle : `T` tank, `H` soins, `D` DPS. |
 | `s`   | `yes` présent, `maybe` peut-être, `bench` remplaçant, `no` absent. |
@@ -104,7 +104,7 @@ tombale).
 
 ### `chars` : fiches perso — clé `n`
 
-`n` nom complet, `cl` classe, `ra` race, `lv` niveau, `sp` spé, `r` rôle,
+`n` nom complet (`Prénom Nom` sur Forever), `cl` classe, `ra` race, `lv` niveau, `sp` spé, `r` rôle,
 `g` guilde, `rk` rang, `acc` compte, `p` métiers : liste de
 `{ "id": 171, "nm": "Alchimie", "lv": 300, "mx": 300 }`.
 

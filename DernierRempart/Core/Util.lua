@@ -105,6 +105,15 @@ end
 ---------------------------------------------------------------------------
 -- Noms de persos
 ---------------------------------------------------------------------------
+-- Sur WoW: Forever un perso s'appelle « Prénom Nom », unique dans la région,
+-- et le jeu ne le donne pas partout pareil :
+--   UnitName("player")      -> "Prénom"
+--   UnitFullName("player")  -> "Prénom", "Nom"  (le nom à la place du royaume)
+--   liste de guilde, expéditeur d'un message d'add-on -> "Prénom Nom",
+--   parfois "Prénom Nom-Royaume" ou "Prénom-Nom".
+-- Le nom complet d'un perso Forever est donc "Prénom Nom", sans royaume
+-- (une guilde s'étale sur plusieurs royaumes liés). Sur un client à royaumes
+-- classique, il reste "Nom-Royaume". Toute comparaison de noms passe par ici.
 local function myRealm()
   local r = (GetNormalizedRealmName and GetNormalizedRealmName()) or nil
   if not r or r == "" then
@@ -114,18 +123,118 @@ local function myRealm()
 end
 Util.MyRealm = myRealm
 
--- "Shenryu" -> "Shenryu-Royaume" ; laisse un nom complet tel quel.
+-- Vrai pour une valeur « secrète » du client Midnight (noms d'unités en
+-- combat, par exemple) : la comparer ou la ranger déclenche une erreur.
+function Util.IsSecret(v)
+  return issecretvalue ~= nil and issecretvalue(v) == true
+end
+
+local function squash(s)
+  return (tostring(s or ""):gsub("[%s%-']", "")):lower()
+end
+
+-- Les royaumes liés de Forever ne diffèrent que par des numéros
+-- ("CAM WoW EU4 Realm 7 PvE", "CAM WoW EU5 Realm 1 PvE").
+function Util.RealmFamily(realm)
+  return (tostring(realm or ""):gsub("[%s%-']", ""):gsub("%d+", ""))
+end
+
+local function isRealm(word)
+  local w = squash(word)
+  if w == "" then return false end
+  if w == squash(myRealm()) or w == squash(GetRealmName and GetRealmName() or "") then return true end
+  return Util.RealmFamily(w) == Util.RealmFamily(squash(myRealm()))
+end
+
+Util.forever = false       -- vrai dès qu'un nom « Prénom Nom » est vu
+local known = {}           -- "prénom nom" -> "Prénom Nom" (liste de guilde)
+local byFirst = {}         -- "prénom" -> "Prénom Nom", ou false si plusieurs
+local myFirst, myFull
+
+local function nameKey(s)
+  return (tostring(s):gsub("%s+", " ")):lower()
+end
+
+-- La liste de guilde sert de référence pour retrouver un nom abrégé.
+function Util.SetKnownNames(list)
+  known, byFirst = {}, {}
+  for _, full in ipairs(list) do
+    if full:find(" ", 1, true) then
+      Util.forever = true
+      known[nameKey(full)] = full
+      local first = nameKey(full):match("^(%S+)")
+      if byFirst[first] == nil then byFirst[first] = full else byFirst[first] = false end
+    end
+  end
+end
+
+-- "Prénom" seul : mon perso, ou le seul membre de la guilde à porter ce prénom.
+local function fromFirst(word)
+  local k = nameKey(word)
+  if myFirst and k == myFirst then return myFull end
+  return byFirst[k] or nil
+end
+
+-- Nom complet du perso connecté.
+function Util.PlayerName()
+  local first, second
+  if UnitFullName then first, second = UnitFullName("player") end
+  first = first or (UnitName and UnitName("player"))
+  if Util.IsSecret(first) or Util.IsSecret(second) or not first or first == "" then return nil end
+  local full
+  if second and second ~= "" and not isRealm(second) then
+    full = first .. " " .. second
+  else
+    local shown = GetUnitName and GetUnitName("player", true)
+    if type(shown) == "string" and not Util.IsSecret(shown) then
+      local head = shown:match("^([^%-]+)")
+      if head and head:find(" ", 1, true) then full = Util.Trim(head) end
+    end
+  end
+  if full then
+    Util.forever = true
+    myFirst, myFull = nameKey(first), full
+    return full
+  end
+  return Util.FullName(first)
+end
+
+-- La liste de guilde connaît le vrai nom de mon perso (voir Guild:Rebuild).
+function Util.SetPlayerName(full)
+  myFull = full
+  myFirst = nameKey(full):match("^(%S+)")
+end
+
+-- Rend le nom complet : "Prénom Nom" sur Forever, "Nom-Royaume" ailleurs.
 function Util.FullName(name, realm)
-  if not name or name == "" then return nil end
-  if name:find("-", 1, true) then return name end
+  if type(name) ~= "string" or name == "" then return nil end
+  name = name:match("^%s*(.-)%s*$")
+  if name == "" then return nil end
+  local head, tail = name:match("^([^%-]+)%-(.+)$")
+  head = head and head:match("^%s*(.-)%s*$")
+  -- "Prénom Nom" ou "Prénom Nom-Royaume" : le royaume ne compte pas.
+  local spaced = head or name
+  if spaced:find(" ", 1, true) then
+    return known[nameKey(spaced)] or (spaced:gsub("%s+", " "))
+  end
+  if head then
+    -- "Prénom-Nom" : la forme à tiret de Forever, quand la guilde connaît ce perso.
+    local two = known[nameKey(head .. " " .. tail)]
+    if two then return two end
+    if not Util.forever then return name end          -- "Nom-Royaume" classique
+    if isRealm(tail) then return fromFirst(head) or head end
+    return head .. " " .. tail
+  end
+  if Util.forever then return fromFirst(name) or name end
   realm = realm and realm ~= "" and realm:gsub("[%s%-]", "") or myRealm()
   if realm == "" then return name end
   return name .. "-" .. realm
 end
 
--- "Shenryu-Royaume" -> "Shenryu" quand le royaume est le mien.
+-- Nom à afficher : sans le royaume quand c'est le mien.
 function Util.ShortName(full)
   if not full then return "?" end
+  if full:find(" ", 1, true) then return (full:match("^([^%-]+)")) end
   local n, r = full:match("^([^%-]+)%-(.+)$")
   if not n then return full end
   if r == myRealm() then return n end
@@ -134,7 +243,8 @@ end
 
 function Util.SameName(a, b)
   if not a or not b then return false end
-  return Util.FullName(a) == Util.FullName(b)
+  local fa, fb = Util.FullName(a), Util.FullName(b)
+  return fa ~= nil and fb ~= nil and nameKey(fa) == nameKey(fb)
 end
 
 ---------------------------------------------------------------------------
@@ -304,16 +414,13 @@ function Util.CompareVersions(a, b)
   return 0
 end
 
--- Ouvre un chuchotement vers un perso.
+-- Propose un chuchotement : un nom à cliquer dans la discussion. Ouvrir la
+-- zone de saisie depuis le code d'un add-on la « contamine » : tout ce que le
+-- joueur tape ensuite est attribué à l'add-on, et le jeu peut le bloquer.
 function Util.Whisper(full)
-  local target = Util.ShortName(full)
-  if ChatFrame_SendTell then
-    ChatFrame_SendTell(target)
-  elseif ChatFrameUtil and ChatFrameUtil.SendTell then
-    ChatFrameUtil.SendTell(target)
-  elseif ChatFrame_OpenChat then
-    ChatFrame_OpenChat("/w " .. target .. " ")
-  end
+  local target = Util.ShortName(Util.FullName(full) or full)
+  local link = GetPlayerLink and GetPlayerLink(target, "[" .. target .. "]")
+  DR:Print("clique pour chuchoter : " .. (link or ("/w " .. target)))
 end
 
 ---------------------------------------------------------------------------

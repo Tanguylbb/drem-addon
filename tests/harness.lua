@@ -146,7 +146,15 @@ function Net:Deliver(from, prefix, text, channel)
   self.log[#self.log + 1] = { from = from.name, prefix = prefix, len = #text }
   for _, c in ipairs(self.clients) do
     if c.online and c.guild == from.guild then
-      c.inbox[#c.inbox + 1] = { prefix = prefix, text = text, channel = channel, sender = from.name .. "-Rempart" }
+      -- Forever : l'expéditeur arrive en "Prénom Nom", parfois abrégé ou avec un tiret.
+      local sender = from.name .. "-Rempart"
+      if self.forever then
+        sender = from.name
+        if self.senderForm == "court" then sender = from.name:match("^(%S+)") end
+        if self.senderForm == "tiret" then sender = from.name:gsub(" ", "-") end
+        if self.senderForm == "royaume" then sender = from.name .. "-CAMWoWEU5Realm1PvE" end
+      end
+      c.inbox[#c.inbox + 1] = { prefix = prefix, text = text, channel = channel, sender = sender }
     end
   end
 end
@@ -197,6 +205,7 @@ function Net:AddClient(opts)
     version = opts.version, online = true, inbox = {}, frames = {}, timers = {}, chat = {},
     sent = {}, profs = opts.profs or {}, map = opts.map, saved = opts.saved,
     lockdown = false, inInstance = false, tradeskill = nil,
+    realm = opts.realm, noGuid = opts.noGuid, noShownName = opts.noShownName,
   }, Client)
   self.clients[#self.clients + 1] = c
   c:Boot()
@@ -240,12 +249,30 @@ function Client:Boot()
   env.GetCursorPosition = function() return 0, 0 end
 
   -- Joueur et guilde
-  env.UnitName = function() return c.name end
+  -- Sur Forever un perso s'appelle "Prénom Nom" : UnitName ne rend que le
+  -- prénom, UnitFullName met le nom à la place du royaume.
+  env.UnitName = function() if net.forever then return (c.name:match("^(%S+)")) end return c.name end
+  env.UnitFullName = function()
+    if net.forever then return c.name:match("^(%S+)%s+(.+)$") end
+    return c.name, nil
+  end
+  env.GetUnitName = function() if net.forever and not c.noShownName then return c.name end return (c.name:match("^(%S+)")) end
+  env.UnitGUID = function() if c.noGuid then return nil end return "Player-1-" .. c.name end
+  env.InCombatLockdown = function() return c.combat or false end
+  env.issecretvalue = function(v) return v == H.SECRET end
+  env.GetPlayerLink = function(name, text) return "|Hplayer:" .. name .. "|h" .. text .. "|h" end
+  env.GetBuildInfo = function() return "1.60.1", "70840", "Nov 1 2026", 16001 end
+  env.debugstack = function() return "pile" end
+  env.GetGuildRosterShowOffline = function() return c.showOffline or false end
+  env.SetGuildRosterShowOffline = function(v) c.showOffline = v end
   env.UnitClass = function() return "Classe", c.class end
   env.UnitRace = function() return "Humain", "Human" end
   env.UnitLevel = function() return c.level end
-  env.GetNormalizedRealmName = function() return "Rempart" end
-  env.GetRealmName = function() return "Rempart" end
+  env.GetNormalizedRealmName = function()
+    if net.forever then return (c.realm or "CAM WoW EU4 Realm 7 PvE"):gsub("%s", "") end
+    return "Rempart"
+  end
+  env.GetRealmName = function() if net.forever then return c.realm or "CAM WoW EU4 Realm 7 PvE" end return "Rempart" end
   env.IsInGuild = function() return c.guild ~= nil end
   env.GetGuildInfo = function() if c.guild then return c.guild, c.rankName, c.rankIndex, nil end end
   env.GetNumGuildMembers = function() return #net.roster end
@@ -255,8 +282,12 @@ function Client:Boot()
     local online = false
     for _, cl in ipairs(net.clients) do if cl.name == m.name and cl.online then online = true end end
     if m.online ~= nil then online = m.online end
-    return m.name .. "-Rempart", m.rankName or "Membre", m.rankIndex or 2, m.level or 60, "Classe",
-      m.zone or "Hurlevent", "", "", online, 0, m.class or "WARRIOR"
+    local shown = m.name .. "-Rempart"
+    if net.forever then shown = m.realm and (m.name .. "-" .. m.realm) or m.name end
+    if c.combat and net.secretInCombat then shown = H.SECRET end
+    return shown, m.rankName or "Membre", m.rankIndex or 2, m.level or 60, "Classe",
+      m.zone or "Hurlevent", "", "", online, 0, m.class or "WARRIOR", nil, nil, nil, nil, nil,
+      (not c.noGuid) and ("Player-1-" .. m.name) or nil
   end
   env.C_GuildInfo = { GuildRoster = function() c:Fire("GUILD_ROSTER_UPDATE") end }
   env.GuildControlGetRankName = function(i) return ({ "Seigneur du Rempart", "Officier", "Membre", "Aspirant" })[i] end
@@ -432,6 +463,33 @@ function H.deepEq(a, b, path)
 end
 
 -- Une guilde de trois : Shenryu (officier), Brumelune et Pikvol (membres).
+H.SECRET = setmetatable({}, { __tostring = function() error("valeur secrète lue") end,
+  __concat = function() error("valeur secrète concaténée") end })
+
+-- Une guilde comme sur Forever : des persos "Prénom Nom" sur des royaumes liés.
+function H.ForeverGuild(opts)
+  opts = opts or {}
+  local net = H.NewNetwork(opts.server)
+  net.forever = true
+  net.senderForm = opts.senderForm
+  net:SetRoster(opts.roster or {
+    { name = "Shenryu Valdor", rankIndex = 1, rankName = "Officier", class = "PALADIN" },
+    { name = "Brume Lune", rankIndex = 2, class = "MAGE", realm = "CAMWoWEU5Realm1PvE" },
+    { name = "Brume Argent", rankIndex = 2, class = "PRIEST", online = false },
+    { name = "Galdrin Roc", rankIndex = 0, rankName = "Seigneur du Rempart", class = "PALADIN", online = false },
+  })
+  local clients = {}
+  for _, spec in ipairs(opts.clients or {
+    { name = "Shenryu Valdor", rankIndex = 1, class = "PALADIN" },
+    { name = "Brume Lune", rankIndex = 2, class = "MAGE", realm = "CAM WoW EU5 Realm 1 PvE" },
+  }) do
+    spec.guild = spec.guild or "Dernier Rempart"
+    clients[#clients + 1] = net:AddClient(spec)
+  end
+  net:Advance(3)
+  return net, clients
+end
+
 function H.Guild(opts)
   opts = opts or {}
   local net = H.NewNetwork(opts.server)

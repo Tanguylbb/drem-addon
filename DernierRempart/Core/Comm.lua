@@ -65,11 +65,7 @@ end
 ---------------------------------------------------------------------------
 function Comm:Locked()
   if not IsInGuild() then return true, "pas de guilde" end
-  if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown then
-    local ok, locked = pcall(C_ChatInfo.InChatMessagingLockdown)
-    if ok and locked then return true, "combat" end
-  end
-  if IsEncounterInProgress and IsEncounterInProgress() then return true, "combat" end
+  if DR.Guard.ChatLocked() then return true, "combat" end
   return false
 end
 
@@ -224,8 +220,11 @@ end
 
 function Comm:OnMessage(prefix, text, channel, sender)
   if channel ~= "GUILD" then return end
-  sender = DR.Util.FullName(sender)
-  if sender == DR.playerName then return end
+  -- En combat le jeu peut livrer des valeurs « secrètes » : ne pas y toucher.
+  local Util = DR.Util
+  if Util.IsSecret(text) or Util.IsSecret(sender) or type(sender) ~= "string" then return end
+  sender = Util.FullName(sender)
+  if not sender or Util.SameName(sender, DR.playerName) then return end
   local full = Comm.Reassemble(partial, sender .. prefix, text)
   if not full then return end
   self.received = self.received + 1
