@@ -58,7 +58,7 @@ return function(H)
     A.tradeskill = { id = 171, name = "Alchimie", all = { 3451, 17556 }, learned = { [3451] = true } }
     A:Fire("TRADE_SKILL_SHOW")
     net:Advance(5)
-    for _, key in ipairs({ "artisans", "carte", "effort", "persos", "pont", "sorties" }) do
+    for _, key in ipairs({ "artisans", "carte", "effort", "banque", "persos", "pont", "sorties" }) do
       A:Slash(key)
       H.eq(UI.current, key)
     end

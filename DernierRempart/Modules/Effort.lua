@@ -183,7 +183,10 @@ local function candidates(gift, goals)
   local list = {}
   for _, g in ipairs(goals) do
     if g.k == gift.k and (g.k ~= "objet" or g.it == gift.it) then
-      if gift.at >= (g.from or 0) and gift.at <= (g.to or math.huge) then list[#list + 1] = g end
+      -- Le journal donne l'heure à l'heure près, arrondie vers le bas : un dépôt
+      -- fait après la création de l'objectif, dans la même heure, compte.
+      local slack = gift.src == "bank" and HOUR or 0
+      if gift.at + slack >= (g.from or 0) and gift.at <= (g.to or math.huge) then list[#list + 1] = g end
     end
   end
   return list

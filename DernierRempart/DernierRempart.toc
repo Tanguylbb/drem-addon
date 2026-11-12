@@ -3,7 +3,7 @@
 ## Notes: Sorties et inscriptions, artisans et recettes, carte des membres, effort de guerre lu dans la banque de guilde. Relié à dernier-rempart.eu.
 ## Notes-frFR: Sorties et inscriptions, artisans et recettes, carte des membres, effort de guerre lu dans la banque de guilde. Relié à dernier-rempart.eu.
 ## Author: Guilde Dernier Rempart
-## Version: 0.3.0
+## Version: 0.3.1
 ## SavedVariables: DernierRempartDB
 ## IconTexture: Interface\AddOns\DernierRempart\Media\minimap
 ## AddonCompartmentFunc: DernierRempart_OnAddonCompartmentClick
@@ -40,6 +40,7 @@ UI\TabSorties.lua
 UI\TabArtisans.lua
 UI\TabCarte.lua
 UI\TabEffort.lua
+UI\TabBanque.lua
 UI\TabPersos.lua
 UI\TabPont.lua
 UI\Minimap.lua

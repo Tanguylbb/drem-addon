@@ -204,7 +204,9 @@ end
 -- Rangée de pastilles (« À venir 6 », « Passées 2 »).
 function W.Chips(parent, items, onSelect)
   local row = CreateFrame("Frame", nil, parent)
-  row:SetHeight(26)
+  -- Une largeur toujours définie : un cadre sans largeur n'affiche pas ses
+  -- pastilles dans le client Forever (Layout la recalcule à chaque changement).
+  row:SetSize(60, 26)
   row.buttons, row.items = {}, items
   for _, item in ipairs(items) do
     local b = W.Button(row, item.label, "chip", 80, 26)
@@ -220,11 +222,12 @@ function W.Chips(parent, items, onSelect)
         local w = (b.label:GetStringWidth() or 60) + 26
         b:SetWidth(w)
         b:ClearAllPoints()
-        b:SetPoint("LEFT", x, 0)
+        b:SetPoint("LEFT", self, "LEFT", x, 0)
         x = x + w + 6
       end
     end
     self.width = x
+    self:SetWidth(math.max(60, x - 6))
   end
   function row:Select(key, user)
     self.selected = key
@@ -552,7 +555,7 @@ end
 -- Pastille de statut (texte coloré dans un cadre fin).
 function W.Badge(parent)
   local f = CreateFrame("Frame", nil, parent)
-  f:SetHeight(18)
+  f:SetSize(40, 18)
   f.bg = T.Fill(f, C.sunk)
   f.label = T.Text(f, "semi", 11)
   f.label:SetPoint("CENTER")

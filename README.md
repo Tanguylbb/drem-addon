@@ -51,6 +51,12 @@ d'add-on. Les positions ne circulent que quand quelqu'un regarde une carte,
 jamais en donjon, en raid ou en champ de bataille, et chacun peut couper le
 partage depuis l'onglet (ou `/rempart position`).
 
+**Banque** — ce que le journal de la banque de guilde a montré : les dépôts
+d'or et d'objets mouvement par mouvement, le total de chaque membre sur 7
+jours, 30 jours ou tout ce qui est lu, et l'objectif de l'effort de guerre
+auquel chaque dépôt est rattaché. Un bouton écrit dans le chat ce que le jeu
+rend du journal (utile pour vérifier que la lecture marche sur Forever).
+
 **Mes persos** — la fiche de chaque perso (classe, niveau, spé, rôle, métiers)
 est lue toute seule et partagée avec la guilde. Les recettes ne se lisent que
 quand le joueur ouvre un métier (le jeu ne laisse pas l'add-on le faire à sa
@@ -93,10 +99,10 @@ nombre dans `DernierRempart/DernierRempart.toc`.
 | Commande | Effet |
 |----------|-------|
 | `/rempart` | Ouvrir ou fermer la fenêtre |
-| `/rempart sorties` · `artisans` · `carte` · `effort` · `persos` · `pont` | Ouvrir un onglet |
+| `/rempart sorties` · `artisans` · `carte` · `effort` · `banque` · `persos` · `pont` | Ouvrir un onglet |
 | `/rempart synchro` | Redemander les dernières données à la guilde |
 | `/rempart position` | Partager ou non sa position |
-| `/rempart banque` | Ce que le jeu rend du journal de la banque de guilde (banque ouverte) |
+| `/rempart banque test` | Ce que le jeu rend du journal de la banque de guilde (banque ouverte) |
 | `/rempart minimap` | Afficher ou cacher le bouton de la minicarte |
 | `/rempart version` | Version de l'add-on |
 | `/rempart rapport` | État de l'add-on, à envoyer si quelque chose cloche |

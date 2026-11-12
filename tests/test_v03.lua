@@ -472,9 +472,41 @@ return function(H)
       H.eq(chatHas(A, "Erreur"), false, "aucune erreur")
     end)
 
-    H.test("/rempart banque dit ce que le jeu rend", function()
+    H.test("Un dépôt fait dans l'heure de la création de l'objectif compte", function()
+      -- Le journal arrondit l'heure vers le bas : « il y a moins d'une heure »
+      -- tombe au début de l'heure, avant la création de l'objectif.
+      local now = net:ServerTime()
+      local fresh = assert(E:SaveGoal({ t = "Tout juste créé", k = "or", amt = "100 po" }))
+      A.env.GetNumGuildBankMoneyTransactions = function() return 1 end
+      A.env.GetGuildBankMoneyTransaction = function() return "deposit", "Pikvol", 123400, 0, 0, 0, 0 end
+      A.env.GetNumGuildBankTransactions = function() return 0 end
+      A:Fire("GUILDBANKFRAME_OPENED")
+      net:Advance(6)
+      net:Advance(5)
+      E.snap = nil
+      local gift
+      for _, g in ipairs(E:Snapshot().gifts) do if g.a == 123400 then gift = g end end
+      H.ok(gift and gift.at <= now, "estimé au début de l'heure")
+      H.ok(gift.goal or gift.why == "classer", "attribué, ou à classer s'il y a d'autres objectifs en or ouverts")
+      E:DeleteGoal(fresh.id)
+      E.snap = nil
+    end)
+
+    H.test("Onglet Banque : le journal lu, membre par membre", function()
+      A.DR.db.settings.debug = true
       A:Slash("banque")
-      H.ok(chatHas(A, "Journal d'or : 2"), "ligne du journal d'or")
+      H.eq(A.DR.UI.current, "banque")
+      local tab = A.DR.UI.tabs.banque
+      tab:Refresh()
+      H.ok(#tab.moves.items >= 3, "les mouvements sont listés, même hors objectif")
+      H.ok(#tab.members.items >= 2, "les membres aussi")
+      tab.chips:Select("all", true)
+      H.eq(chatHas(A, "Erreur"), false)
+    end)
+
+    H.test("/rempart banque dit ce que le jeu rend", function()
+      A:Slash("banque test")
+      H.ok(chatHas(A, "Journal d'or : 1"), "ligne du journal d'or")
       H.ok(chatHas(A, "Fonctions du journal : présentes"))
     end)
 
@@ -482,7 +514,7 @@ return function(H)
       local net2, c2 = H.Guild({ clients = { { name = "Shenryu", rankIndex = 1 } } })
       c2[1]:Fire("GUILDBANKFRAME_OPENED")
       net2:Advance(5)
-      c2[1]:Slash("banque")
+      c2[1]:Slash("banque test")
       H.ok(chatHas(c2[1], "absentes"))
     end)
 
@@ -579,6 +611,28 @@ return function(H)
       A.DR.Bridge:RefreshOutbox()
       local again = A.DR.Bridge.Decode(A.env.DernierRempartDB.outbox.code)
       H.eq(again.signups, nil, "rien de nouveau depuis ce que le site a reçu")
+    end)
+
+    H.test("Les pastilles ont une largeur : sans elle le client Forever ne les affiche pas", function()
+      A:Slash("artisans")
+      local arts = A.DR.UI.tabs.artisans
+      H.ok(arts.chips:GetWidth() > 100, "pastilles de l'onglet Artisans")
+      H.ok(arts.modeChips:GetWidth() > 100)
+      A:Slash("effort")
+      H.ok(A.DR.UI.tabs.effort.chips:GetWidth() > 60)
+      H.ok(A.DR.UI.tabs.effort.visChips:GetWidth() > 60)
+    end)
+
+    H.test("Navigation : de la liste d'achat on revient à la liste", function()
+      A:Slash("artisans")
+      local arts = A.DR.UI.tabs.artisans
+      arts.chips:Select("recherches", true)
+      H.eq(arts.view, "recherches")
+      arts.backFromWishes:Click()
+      H.eq(arts.view, "qui")
+      arts.chips:Select("commandes", true)
+      arts.backFromOrders:Click()
+      H.eq(arts.view, "qui")
     end)
 
     H.test("Onglet Pont : l'état du relais s'affiche", function()

@@ -72,12 +72,19 @@ capture) ou « bizarre ».
 **Banque de guilde et effort de guerre** (la lecture du journal est la partie la
 moins sûre : le jeu peut la refuser ou la limiter sur Forever)
 
-- [ ] Banque ouverte, taper `/rempart banque` : « Fonctions du journal :
+- [ ] Les pastilles sont visibles : « Qui sait faire quoi / Recettes recherchées /
+      Commandes » (Artisans), « En cours / Terminés » (Effort de guerre),
+      « Tous / Officiers ». Sinon, le noter : sans elles on ne change pas de vue.
+- [ ] Onglet **Banque** : le journal d'or lu, membre par membre, avec les trois
+      chiffres du haut.
+- [ ] Banque ouverte, taper `/rempart banque test` (ou le bouton « Ce que le jeu
+      rend » de l'onglet Banque) : « Fonctions du journal :
       présentes », un nombre de lignes pour le journal d'or et pour chaque
       onglet. Noter ce qui est dit si c'est « absentes » ou « illisible ».
 - [ ] Même chose avec un membre simple, puis avec un officier : les rangs
       voient-ils tous les onglets et le journal d'or ? Noter qui voit quoi.
-- [ ] O crée un objectif en or (« Nouvel objectif »). M dépose 1 po dans la
+- [ ] O crée un objectif en or (« Nouvel objectif »), sans date de début. M dépose
+      1 po dans la
       banque, ferme la banque. Chez M : message « banque de guilde lue ». Chez
       O : l'objectif a avancé et le dépôt est listé à droite (l'heure n'est
       donnée qu'à l'heure près).

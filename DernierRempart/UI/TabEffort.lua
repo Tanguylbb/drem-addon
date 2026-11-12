@@ -136,7 +136,12 @@ function Tab:Create(f, width, height)
   self.right = right
   self.rightTitle = T.Text(right, "caps", 11, C.muted)
   self.rightTitle:SetPoint("TOPLEFT", 14, -14)
-  self.rightTitle:SetPoint("RIGHT", -14, 0)
+  self.rightTitle:SetPoint("RIGHT", -110, 0)
+  -- Un clic sur un objectif ne montre plus que ses dons : un bouton pour tout revoir.
+  self.allBtn = W.Button(right, "Tout voir", "ghost", 90, 22)
+  self.allBtn:SetPoint("TOPRIGHT", -10, -9)
+  self.allBtn:SetScript("OnClick", function() self.filterGoal = nil; self:Refresh() end)
+  self.allBtn:Hide()
   self.moves = W.List(right, {
     width = rw - 2, height = colH - 40 - 46, rowHeight = 36,
     create = function(row)
@@ -345,7 +350,10 @@ function Tab:BuildGoalForm(f, width, h, top)
 
   local help = T.Para(form, "body", 11, C.muted, width - 2 * pad)
   help:SetPoint("TOPLEFT", pad, y - 58)
-  help:SetText("L'or déposé dans la banque compte pour l'objectif en or en cours, les objets pour l'objectif qui les attend. Sans date de fin, l'objectif reste ouvert jusqu'à ce que tu le fermes.")
+  help:SetText("L'or déposé dans la banque compte pour l'objectif en or en cours, les objets pour l'objectif qui les attend. "
+    .. "Seuls comptent les dépôts faits à partir du début : sans date, c'est maintenant. "
+    .. "Pour compter ce que le journal de la banque montre déjà, mets une date de début passée "
+    .. "(le journal ne garde que les derniers mouvements).")
 
   form.save = W.Button(form, "Enregistrer", "gold", 150, 32)
   form.save:SetPoint("BOTTOMLEFT", pad, pad)
@@ -552,6 +560,7 @@ function Tab:Refresh()
     if g then title = title .. " · " .. g.t else self.filterGoal = nil end
   end
   self.rightTitle:SetText(title:upper())
+  self.allBtn:SetShown(self.filterGoal ~= nil)
   self.moves:SetEmptyText(see and "Aucun mouvement lu pour l'instant. Ouvre la banque de guilde en jeu."
     or "Les officiers ont choisi de ne montrer que les totaux.")
   self.moves:SetItems(moves, true)
