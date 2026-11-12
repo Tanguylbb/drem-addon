@@ -206,6 +206,7 @@ function Net:AddClient(opts)
     sent = {}, profs = opts.profs or {}, map = opts.map, saved = opts.saved,
     lockdown = false, inInstance = false, tradeskill = nil,
     realm = opts.realm, noGuid = opts.noGuid, noShownName = opts.noShownName,
+    bank = opts.bank, relayData = opts.relayData,
   }, Client)
   self.clients[#self.clients + 1] = c
   c:Boot()
@@ -319,12 +320,24 @@ function Client:Boot()
     local p = c.profs[i]
     if p then return p.name, 0, p.rank, p.max, 0, 0, p.id end
   end
+  -- Types de craft : tradeskill.types = { [identifiant de recette] = "Sacs" }.
+  local typeIds, typeNames = {}, {}
+  local function typeId(name)
+    if not typeIds[name] then
+      typeNames[#typeNames + 1] = name
+      typeIds[name] = #typeNames
+    end
+    return typeIds[name]
+  end
   env.C_TradeSkillUI = {
     GetAllRecipeIDs = function() return c.tradeskill and c.tradeskill.all or {} end,
     GetRecipeInfo = function(id)
       if not c.tradeskill then return nil end
-      return { recipeID = id, learned = c.tradeskill.learned[id] and true or false, name = "R" .. id }
+      local t = c.tradeskill.types and c.tradeskill.types[id]
+      return { recipeID = id, learned = c.tradeskill.learned[id] and true or false, name = "R" .. id,
+        categoryID = t and typeId(t) or nil }
     end,
+    GetCategoryInfo = function(id) return typeNames[id] and { name = typeNames[id] } or nil end,
     GetBaseProfessionInfo = function()
       if c.tradeskill then
         return { professionID = c.tradeskill.id, professionName = c.tradeskill.name, skillLevel = 280, maxSkillLevel = 300 }
@@ -352,6 +365,26 @@ function Client:Boot()
     GetMapArtLayerTextures = function() local t = {} for i = 1, 12 do t[i] = i end return t end,
   }
 
+  -- Banque de guilde : bank = { tabs = 2, money = { {kind, name, amount, y, mo, d, h} },
+  -- items = { [onglet] = { {kind, name, link, count, 0, 0, y, mo, d, h} } } }
+  env.MAX_GUILDBANK_TABS = 6
+  if c.bank then
+    env.QueryGuildBankLog = function() c:Fire("GUILDBANKLOG_UPDATE") end
+    env.GetNumGuildBankTabs = function() return c.bank.tabs or 1 end
+    env.GetGuildBankTabInfo = function() return "Onglet", 1, true end
+    env.GetNumGuildBankMoneyTransactions = function() return #(c.bank.money or {}) end
+    env.GetGuildBankMoneyTransaction = function(i)
+      local e = c.bank.money[i]
+      if e then return unpack(e) end
+    end
+    env.GetNumGuildBankTransactions = function(tab) return #((c.bank.items or {})[tab] or {}) end
+    env.GetGuildBankTransaction = function(tab, i)
+      local e = ((c.bank.items or {})[tab] or {})[i]
+      if e then return unpack(e) end
+    end
+  end
+  -- Ce que le relais (programme sur le PC d'un officier) a déposé.
+  env.DernierRempartData = c.relayData
   env.DernierRempartDB = self.saved
 
   -- Chargement de l'add-on, fichier par fichier, comme le jeu.
@@ -399,6 +432,7 @@ end
 
 -- Déconnexion : garde la sauvegarde, comme le fichier SavedVariables.
 function Client:Logout()
+  self:Fire("PLAYER_LOGOUT")
   self.online = false
   self.saved = self.env.DernierRempartDB
 end

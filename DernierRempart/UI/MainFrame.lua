@@ -8,7 +8,7 @@ local C = T.C
 
 UI.WIDTH, UI.HEIGHT = 900, 640
 UI.tabs = {}       -- clé -> { label, Create(self, parent), Refresh(self) }
-UI.TAB_ORDER = { "sorties", "artisans", "carte", "persos", "pont" }
+UI.TAB_ORDER = { "sorties", "artisans", "carte", "effort", "persos", "pont" }
 
 function UI:RegisterTab(key, label, def)
   def.key, def.label = key, label
@@ -231,7 +231,7 @@ end
 function UI:Open(tab)
   local f = self:Build()
   f:Show()
-  local map = { sorties = "sorties", artisans = "artisans", carte = "carte", persos = "persos", pont = "pont" }
+  local map = { sorties = "sorties", artisans = "artisans", carte = "carte", effort = "effort", persos = "persos", pont = "pont" }
   if tab and map[tab] then self.tabBar:Select(map[tab]) end
 end
 
@@ -244,7 +244,8 @@ function UI:OnLogin()
     end
   end)
   for _, name in ipairs({ "DATA_CHANGED", "ROSTER_UPDATED", "GUILD_READY", "STORE_BOUND", "PROFILE_UPDATED",
-    "BRIDGE_IMPORTED", "EVENTS_CHANGED", "SIGNUP_CHANGED" }) do
+    "BRIDGE_IMPORTED", "EVENTS_CHANGED", "SIGNUP_CHANGED", "EFFORT_CHANGED", "BANK_READ", "BRIDGE_RELAY",
+    "SYNC_REPLY" }) do
     DR:Listen(name, refresh)
   end
   DR:Listen("ROSTER_UPDATED", function() self:UpdateOfficerTabs() end)

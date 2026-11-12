@@ -5,7 +5,8 @@
 --   lv/mx (niveau du métier), l (liste des recettes apprises : identifiants
 --   de sort ; un nombre négatif désigne un objet quand le sort est inconnu)
 -- Catalogue d'un métier ("catalog") : p, pn, l (toutes les recettes vues,
---   apprises ou non, quand le jeu les montre)
+--   apprises ou non, quand le jeu les montre), g (les mêmes rangées par type
+--   de craft : liste de { n = nom du type, l = identifiants })
 -- Commande ("orders") :
 --   k = "recette" : la guilde cherche une recette (cherchee, trouvee, apprise, abandonnee)
 --   k = "craft"   : demande de fabrication à un artisan (demandee, acceptee, faite, annulee)
@@ -91,6 +92,19 @@ local function sortedUnique(list)
   return out
 end
 
+-- Type de craft d'une recette (« Sacs », « Robes »…), tel que la fenêtre de
+-- métier du jeu le range.
+local categoryNames = {}
+local function categoryName(T, categoryID)
+  if not categoryID or not T.GetCategoryInfo then return nil end
+  local hit = categoryNames[categoryID]
+  if hit ~= nil then return hit or nil end
+  local ok, info = pcall(T.GetCategoryInfo, categoryID)
+  local name = ok and type(info) == "table" and type(info.name) == "string" and info.name ~= "" and info.name or nil
+  categoryNames[categoryID] = name or false
+  return name
+end
+
 local function scanModern()
   local T = C_TradeSkillUI
   if not (T and T.GetAllRecipeIDs and T.GetRecipeInfo) then return nil end
@@ -112,15 +126,21 @@ local function scanModern()
     pid, pname, lv, mx = id, name, rank, maxRank
   end
   if not pid then return false end
-  local learned, all = {}, {}
+  local learned, all, byType = {}, {}, {}
   for _, id in ipairs(T.GetAllRecipeIDs() or {}) do
     local info = T.GetRecipeInfo(id)
     if info then
       all[#all + 1] = id
       if info.learned then learned[#learned + 1] = id end
+      local cname = categoryName(T, info.categoryID) or "Autres"
+      byType[cname] = byType[cname] or {}
+      table.insert(byType[cname], id)
     end
   end
-  return { p = pid, pn = pname, lv = lv, mx = mx, l = sortedUnique(learned), all = sortedUnique(all) }
+  local groups = {}
+  for name, ids in pairs(byType) do groups[#groups + 1] = { n = name, l = sortedUnique(ids) } end
+  table.sort(groups, function(a, b) return a.n < b.n end)
+  return { p = pid, pn = pname, lv = lv, mx = mx, l = sortedUnique(learned), all = sortedUnique(all), groups = groups }
 end
 
 local function idFromLink(link)
@@ -177,14 +197,16 @@ function Crafts:SaveScan(scan)
   local mine = DR.db.myChars[me]
   if mine then
     mine.recipes = mine.recipes or {}
-    mine.recipes[tostring(scan.p)] = { p = scan.p, pn = scan.pn, n = #scan.l }
+    mine.recipes[tostring(scan.p)] = { p = scan.p, pn = scan.pn, n = #scan.l, at = Util.Now() }
+    DR:Emit("PROFILE_UPDATED", "recettes")
   end
   if not (IsInGuild() and Store:IsReady()) then return end
   local written = Store:Put("recipes", { c = me, p = scan.p, pn = scan.pn, lv = scan.lv, mx = scan.mx, l = scan.l })
   if scan.all and #scan.all > 0 then
     local cat = Store:Get("catalog", tostring(scan.p))
-    if not cat or #(cat.l or {}) < #scan.all then
-      Store:Put("catalog", { p = scan.p, pn = scan.pn, l = scan.all })
+    -- Un catalogue plus complet, ou le premier rangé par type de craft, remplace l'ancien.
+    if not cat or #(cat.l or {}) < #scan.all or (scan.groups and not cat.g) then
+      Store:Put("catalog", { p = scan.p, pn = scan.pn, l = scan.all, g = scan.groups })
     end
   end
   self:AutoLearn(scan.l)
@@ -231,16 +253,23 @@ function Crafts:BuildIndex()
       e.crafters[#e.crafters + 1] = r.c
     end
   end
-  local missing = {}
+  local missing, typeOf = {}, {}
   for _, cat in ipairs(Store:List("catalog")) do
     profs[cat.p] = profs[cat.p] or cat.pn
+    for _, g in ipairs(type(cat.g) == "table" and cat.g or {}) do
+      if type(g) == "table" and type(g.l) == "table" then
+        for _, id in ipairs(g.l) do typeOf[id] = g.n end
+      end
+    end
     for _, id in ipairs(cat.l or {}) do
       if not byId[id] then
         missing[#missing + 1] = { id = id, p = cat.p, pn = cat.pn, crafters = {}, missing = true }
       end
     end
   end
-  self.index = { byId = byId, list = list, missing = missing, profs = profs }
+  for _, e in ipairs(list) do e.cat = typeOf[e.id] end
+  for _, e in ipairs(missing) do e.cat = typeOf[e.id] end
+  self.index = { byId = byId, list = list, missing = missing, profs = profs, typeOf = typeOf }
   return self.index
 end
 
@@ -299,6 +328,167 @@ end
 function Crafts:WhoKnows(id)
   local e = self:Index().byId[id]
   return e and e.crafters or {}
+end
+
+---------------------------------------------------------------------------
+-- Toute la liste d'un métier, rangée par type de craft
+---------------------------------------------------------------------------
+-- Toutes les recettes connues d'un métier : celles que des artisans savent
+-- faire et celles que personne n'a apprises (vues dans une fenêtre de métier).
+function Crafts:Entries(pid)
+  local idx = self:Index()
+  local out, seen = {}, {}
+  for _, e in ipairs(idx.list) do
+    if e.p == pid then seen[e.id] = true; out[#out + 1] = e end
+  end
+  for _, e in ipairs(idx.missing) do
+    if e.p == pid and not seen[e.id] then out[#out + 1] = e end
+  end
+  return out
+end
+
+-- Recettes de ce métier que l'un de MES persos sait faire.
+function Crafts:MyKnown(pid)
+  local set = {}
+  for _, r in ipairs(Store:List("recipes", function(r) return r.p == pid end)) do
+    if DR.Profile:IsMine(r.c) then
+      for _, id in ipairs(r.l or {}) do set[id] = true end
+    end
+  end
+  return set
+end
+
+-- filter : "all", "lacking" (aucun de mes persos ne la sait), "nobody" (personne ne la sait).
+-- Rend la liste des types de craft : { name, entries, total, nobody }.
+function Crafts:Tree(pid, filter, text)
+  local q = Util.Fold(Util.Trim(text or ""))
+  local mine = self:MyKnown(pid)
+  local byName, groups = {}, {}
+  for _, e in ipairs(self:Entries(pid)) do
+    decorate(e)
+    local name = e.cat or "Autres"
+    local g = byName[name]
+    if not g then
+      g = { name = name, entries = {}, total = 0, nobody = 0 }
+      byName[name] = g
+      groups[#groups + 1] = g
+    end
+    g.total = g.total + 1
+    local nobody = #e.crafters == 0
+    local keep = filter == "all" or (filter == "lacking" and not mine[e.id]) or (filter == "nobody" and nobody)
+    if keep and (q == "" or e.folded:find(q, 1, true)) then
+      g.entries[#g.entries + 1] = e
+      if nobody then g.nobody = g.nobody + 1 end
+    end
+  end
+  local out = {}
+  for _, g in ipairs(groups) do
+    if #g.entries > 0 then
+      table.sort(g.entries, function(a, b) return a.folded < b.folded end)
+      out[#out + 1] = g
+    end
+  end
+  table.sort(out, function(a, b)
+    if (a.name == "Autres") ~= (b.name == "Autres") then return b.name == "Autres" end
+    return Util.Fold(a.name) < Util.Fold(b.name)
+  end)
+  return out
+end
+
+-- Combien de recettes dans le catalogue du métier, lu par combien de membres.
+function Crafts:CatalogInfo(pid)
+  local n = #self:Entries(pid)
+  local readers = #Store:List("recipes", function(r) return r.p == pid end)
+  local members = #Store:List("chars", function(c)
+    for _, p in ipairs(c.p or {}) do if p.id == pid then return true end end
+    return false
+  end)
+  return { recipes = n, readers = readers, members = members }
+end
+
+-- Membres qui ont ce métier mais n'ont pas encore partagé leurs recettes.
+function Crafts:Unshared(pid)
+  local out = {}
+  for _, c in ipairs(Store:List("chars")) do
+    for _, p in ipairs(c.p or {}) do
+      if p.id == pid and not Store:Get("recipes", c.n .. "|" .. tostring(pid)) then
+        out[#out + 1] = { name = c.n, lv = p.lv or 0 }
+      end
+    end
+  end
+  table.sort(out, function(a, b) return a.name < b.name end)
+  return out
+end
+
+-- Qui, dans la guilde, a le métier et pourrait l'apprendre (il ne la sait pas encore).
+function Crafts:CouldLearn(e)
+  local known = {}
+  for _, n in ipairs(e.crafters or {}) do known[n] = true end
+  local out = {}
+  for _, c in ipairs(Store:List("chars")) do
+    if not known[c.n] then
+      for _, p in ipairs(c.p or {}) do
+        if p.id == e.p then out[#out + 1] = { name = c.n, lv = p.lv or 0 } end
+      end
+    end
+  end
+  table.sort(out, function(a, b)
+    if a.lv ~= b.lv then return a.lv > b.lv end
+    return a.name < b.name
+  end)
+  return out
+end
+
+---------------------------------------------------------------------------
+-- « +1 » : je voudrais que la guilde achète cette recette
+---------------------------------------------------------------------------
+-- Pour chaque recette cherchée : recette -> { order, n (soutiens), mine }.
+function Crafts:WantMap()
+  local counts, mine = {}, {}
+  for _, v in ipairs(Store:List("votes")) do
+    counts[v.o] = (counts[v.o] or 0) + 1
+    if DR.Profile:IsMine(v.c) then mine[v.o] = true end
+  end
+  local map = {}
+  for _, o in ipairs(Store:List("orders", function(o)
+    return o.k == "recette" and (o.s == "cherchee" or o.s == "trouvee")
+  end)) do
+    local id = o.sp or (o.it and -o.it)
+    if id then map[id] = { order = o, n = counts[o.id] or 0, mine = mine[o.id] or false } end
+  end
+  return map
+end
+
+function Crafts:Wanters(orderId)
+  local out = {}
+  for _, v in ipairs(Store:List("votes", function(v) return v.o == orderId end)) do out[#out + 1] = v.c end
+  table.sort(out)
+  return out
+end
+
+-- +1 ou retirer mon +1. Crée la recette recherchée s'il n'y en a pas encore.
+-- Rend l'ordre et vrai si j'ai maintenant mon +1.
+function Crafts:ToggleWant(e)
+  local current = self:WantMap()[e.id]
+  if current then
+    self:Vote(current.order.id, not current.mine)
+    return current.order, not current.mine
+  end
+  local rec, msg = self:Wish({ sp = e.id > 0 and e.id or nil, it = e.id < 0 and -e.id or nil, nm = e.name },
+    { id = e.p, name = e.pn })
+  if not rec then return nil, false, msg end
+  return rec, true
+end
+
+-- « Où la trouver » : renseigné par n'importe quel membre.
+function Crafts:SetWhere(orderId, text)
+  local o = Store:Get("orders", orderId)
+  if not o then return false end
+  text = Util.Trim(text or "")
+  local rec = Util.Copy(o)
+  if text == "" then rec.wh, rec.wb = nil, nil else rec.wh, rec.wb = Util.Truncate(text, 120), DR.playerName end
+  Store:Put("orders", rec)
+  return true
 end
 
 ---------------------------------------------------------------------------

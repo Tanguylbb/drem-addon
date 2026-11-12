@@ -9,7 +9,7 @@ local Crafts = DR.Crafts
 local Tab = {}
 UI:RegisterTab("artisans", "Artisans", Tab)
 
-local LIST_W = 470
+local LIST_W = 500
 
 local function hexColor(h) return { Util.Hex(h) } end
 
@@ -31,6 +31,9 @@ function Tab:Create(f, width, height)
   end)
   self.chips:SetPoint("TOPLEFT", 0, -2)
   self.chips:Select("qui")
+  -- Combien de recettes dans le catalogue du métier, lu par combien de membres.
+  self.catalogBadge = W.Badge(f)
+  self.catalogBadge:SetPoint("TOPRIGHT", 0, -4)
 
   self.pages = {}
   local top = -42
@@ -46,10 +49,18 @@ function Tab:Create(f, width, height)
 end
 
 ---------------------------------------------------------------------------
--- Qui sait faire quoi
+-- Qui sait faire quoi : toute la liste du métier, rangée par type de craft
 ---------------------------------------------------------------------------
+local FILTERS = {
+  { key = "all", label = "Tout" },
+  { key = "lacking", label = "Il me manque" },
+  { key = "nobody", label = "Personne ne l'a" },
+}
+
 function Tab:BuildQui(p, width, height)
-  local search = W.Edit(p, 230, 28, "Chercher une recette…", 60)
+  self.filter = "all"
+  self.collapsed = {}
+  local search = W.Edit(p, 210, 28, "Chercher une recette…", 60)
   search:SetPoint("TOPLEFT", 0, 0)
   search:SetTextInsets(26, 8, 0, 0)
   search.placeholder:SetPoint("LEFT", 26, 0)
@@ -61,64 +72,81 @@ function Tab:BuildQui(p, width, height)
   search:HookScript("OnTextChanged", function() self:RefreshQui() end)
   self.search = search
 
-  self.profBtn = W.Button(p, "Métier : tous", "ghost", 170, 28)
+  self.profBtn = W.Button(p, "Métier", "ghost", 190, 28)
   self.profBtn:SetPoint("LEFT", search, "RIGHT", 8, 0)
   self.profBtn:SetScript("OnClick", function(btn)
-    local items = { { text = "Tous les métiers", checked = self.prof == nil, func = function() self.prof = nil; self:RefreshQui() end } }
+    local items = { { text = "Tous les métiers", checked = self.allProfs, func = function()
+      self.allProfs, self.prof, self.selectedRecipe = true, nil, nil
+      self:RefreshQui()
+    end } }
     for _, pr in ipairs(Crafts:Professions()) do
-      items[#items + 1] = { text = pr.name, checked = self.prof == pr.id, func = function() self.prof = pr.id; self:RefreshQui() end }
+      items[#items + 1] = { text = pr.name, checked = not self.allProfs and self.prof == pr.id, func = function()
+        self.allProfs, self.prof, self.selectedRecipe = false, pr.id, nil
+        self:RefreshQui()
+      end }
     end
-    W.OpenMenu(btn, items, 200)
+    W.OpenMenu(btn, items, 220)
   end)
+  W.Tip(self.profBtn, "Métier", "Tous les métiers de la guilde, même ceux que tu n'as pas : tu vois leurs recettes et qui sait les faire.")
 
-  self.modeChips = W.Chips(p, {
-    { key = "known", label = "Quelqu'un sait" },
-    { key = "missing", label = "Personne ne l'a" },
-  }, function(key, user)
-    self.mode = key
+  self.modeChips = W.Chips(p, FILTERS, function(key, user)
+    self.filter = key
     if user then self.selectedRecipe = nil; self:RefreshQui() end
   end)
-  self.modeChips:SetPoint("LEFT", self.profBtn, "RIGHT", 12, 0)
-  self.modeChips:Select("known")
-  W.Tip(self.modeChips.buttons.missing, "Personne ne l'a",
-    "Recettes vues dans la fenêtre de métier d'un artisan de la guilde, que personne ne connaît encore.")
+  self.modeChips:SetPoint("LEFT", self.profBtn, "RIGHT", 10, 0)
+  self.modeChips:Select("all")
+  W.Tip(self.modeChips.buttons.lacking, "Il me manque",
+    "Les recettes du métier qu'aucun de tes persos n'a apprises.")
+  W.Tip(self.modeChips.buttons.nobody, "Personne ne l'a",
+    "Recettes vues dans la fenêtre de métier d'un artisan de la guilde, que personne ne connaît encore. Fais +1 pour dire que tu voudrais que la guilde l'achète.")
 
   local listH = height - 40
   self.recipes = W.List(p, {
     width = LIST_W, height = listH, rowHeight = 30,
     create = function(row)
-      row.icon = row:CreateTexture(nil, "ARTWORK")
+      -- Un type de craft (dossier qu'on ouvre et ferme).
+      local cat = CreateFrame("Frame", nil, row)
+      cat:SetAllPoints()
+      T.Fill(cat, { 0.06, 0.105, 0.19 })
+      row.catSign = T.Text(cat, "bold", 14, C.goldText)
+      row.catSign:SetPoint("LEFT", 12, 0)
+      row.catName = T.Text(cat, "semi", 13, C.goldText)
+      row.catName:SetPoint("LEFT", 30, 0)
+      row.catName:SetPoint("RIGHT", -120, 0)
+      row.catBadge = W.Badge(cat)
+      row.catBadge:SetPoint("RIGHT", -10, 0)
+      row.cat = cat
+      -- Une recette.
+      local rec = CreateFrame("Frame", nil, row)
+      rec:SetAllPoints()
+      row.sel = rec:CreateTexture(nil, "BACKGROUND")
+      row.sel:SetAllPoints()
+      row.sel:SetColorTexture(1, 1, 1, 0.07)
+      row.icon = rec:CreateTexture(nil, "ARTWORK")
       row.icon:SetSize(22, 22)
-      row.icon:SetPoint("LEFT", 4, 0)
-      row.name = T.Text(row, "semi", 12, C.ivory)
+      row.icon:SetPoint("LEFT", 26, 0)
+      row.name = T.Text(rec, "semi", 12, C.ivory)
       row.name:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
       row.name:SetPoint("RIGHT", -150, 0)
-      row.who = T.Text(row, "body", 11, C.brume)
-      row.who:SetPoint("RIGHT", -6, 0)
-      row.who:SetJustifyH("RIGHT")
-      row.sel = row:CreateTexture(nil, "BACKGROUND")
-      row.sel:SetAllPoints()
-      row.sel:SetColorTexture(1, 1, 1, 0.06)
+      row.badge = W.Badge(rec)
+      row.badge:SetPoint("RIGHT", -74, 0)
+      row.plus = W.Button(rec, "", "toggle", 62, 22)
+      row.plus:SetPoint("RIGHT", -8, 0)
+      row.rec = rec
       row:SetScript("OnEnter", function(r)
-        if r.item then Crafts:ShowTooltip(r, r.item.id) end
+        if r.item and r.item.kind == "rec" then Crafts:ShowTooltip(r, r.item.e.id) end
       end)
       row:SetScript("OnLeave", function() GameTooltip:Hide() end)
     end,
-    update = function(row, e)
-      row.icon:SetTexture(Crafts:RecipeIcon(e.id) or 134400)
-      row.name:SetText(e.name)
-      if e.missing then
-        row.who:SetText(T.Hex(C.amber) .. (e.pn or "") .. "|r")
+    update = function(row, item) self:UpdateRecipeRow(row, item) end,
+    click = function(item)
+      if item.kind == "cat" then
+        self.collapsed[item.g.name] = item.open or nil
       else
-        local online = 0
-        for _, n in ipairs(e.crafters) do if DR.Guild:IsOnline(n) then online = online + 1 end end
-        local txt = T.Hex(C.muted) .. (e.pn or "") .. "|r  " .. #e.crafters .. " artisan" .. (#e.crafters > 1 and "s" or "")
-        if online > 0 then txt = txt .. T.Hex(C.teal) .. " · " .. online .. " en ligne|r" end
-        row.who:SetText(txt)
+        self.selectedRecipe, self.selectedCrafter = item.e.id, nil
       end
-      row.sel:SetShown(self.selectedRecipe == e.id)
+      self:RefreshQui()
     end,
-    click = function(e) self.selectedRecipe = e.id; self.selectedCrafter = nil; self:RefreshQui() end,
   })
   self.recipes:SetPoint("TOPLEFT", 0, -40)
 
@@ -138,12 +166,24 @@ function Tab:BuildQui(p, width, height)
   d.icon:SetPoint("TOPLEFT", pad, -pad)
   d.name = T.Para(body, "title", 19, C.goldText, dw - 2 * pad - 46)
   d.name:SetPoint("TOPLEFT", d.icon, "TOPRIGHT", 10, 0)
+  d.name:SetMaxLines(2)
   d.prof = T.Text(body, "caps", 11, C.brume)
-  d.prof:SetPoint("TOPLEFT", d.icon, "BOTTOMLEFT", 0, -10)
-  d.sub = T.Text(body, "semi", 12, C.goldPale)
-  d.sub:SetPoint("TOPLEFT", d.prof, "BOTTOMLEFT", 0, -14)
-  d.crafters = W.List(body, {
-    width = dw - 2 * pad, height = listH - 230, rowHeight = 22,
+  d.prof:SetPoint("TOPLEFT", d.icon, "BOTTOMLEFT", 0, -8)
+  d.prof:SetPoint("RIGHT", -pad, 0)
+  d.badges = W.Badge(body)
+  d.badges:SetPoint("TOPLEFT", d.prof, "BOTTOMLEFT", 0, -8)
+  d.status = W.Badge(body)
+  d.status:SetPoint("LEFT", d.badges, "RIGHT", 6, 0)
+
+  -- Quelqu'un sait la faire : les artisans, et la demande.
+  local known = CreateFrame("Frame", nil, body)
+  known:SetPoint("TOPLEFT", d.badges, "BOTTOMLEFT", 0, -10)
+  known:SetPoint("BOTTOMRIGHT", 0, 0)
+  d.known = known
+  d.sub = T.Text(known, "semi", 12, C.goldPale)
+  d.sub:SetPoint("TOPLEFT", 0, 0)
+  d.crafters = W.List(known, {
+    width = dw - 2 * pad, height = listH - 244, rowHeight = 22,
     create = function(row)
       row.dot = W.Dot(row, 7)
       row.dot:SetPoint("LEFT", 4, 0)
@@ -162,35 +202,121 @@ function Tab:BuildQui(p, width, height)
     end,
     click = function(c) self.selectedCrafter = c.name; self:RefreshQui() end,
   })
-  d.crafters:SetPoint("TOPLEFT", d.sub, "BOTTOMLEFT", 0, -8)
-
-  d.note = W.Edit(body, dw - 2 * pad, 26, "Petit mot pour l'artisan (composants fournis…)", 200)
-  d.note:SetPoint("BOTTOMLEFT", pad, pad + 40)
-  d.ask = W.Button(body, "Demander", "gold", 170, 32)
-  d.ask:SetPoint("BOTTOMLEFT", pad, pad)
+  d.crafters:SetPoint("TOPLEFT", d.sub, "BOTTOMLEFT", 0, -6)
+  d.unshared = T.Text(known, "body", 11, C.amber)
+  d.unshared:SetPoint("BOTTOMLEFT", 0, 78)
+  d.unshared:SetPoint("RIGHT", -110, 0)
+  d.remind = W.Button(known, "Lui rappeler", "ghost", 100, 22)
+  d.remind:SetPoint("BOTTOMRIGHT", -pad, 74)
+  d.remind:SetScript("OnClick", function()
+    if self.remindName then Util.Whisper(self.remindName) end
+  end)
+  W.Tip(d.remind, "Lui rappeler", "Cette personne a le métier mais n'a pas encore ouvert sa fenêtre de métier avec l'add-on : ses recettes ne sont pas partagées.")
+  d.note = W.Edit(known, dw - 2 * pad, 26, "Petit mot pour l'artisan (composants fournis…)", 200)
+  d.note:SetPoint("BOTTOMLEFT", 0, 40)
+  d.ask = W.Button(known, "Demander", "gold", 190, 32)
+  d.ask:SetPoint("BOTTOMLEFT", 0, 0)
   d.ask:SetScript("OnClick", function() self:AskCraft() end)
-  d.whisper = W.Button(body, "Chuchoter", "slate", 120, 32)
+  d.whisper = W.Button(known, "Chuchoter", "slate", 120, 32)
   d.whisper:SetPoint("LEFT", d.ask, "RIGHT", 8, 0)
   d.whisper:SetScript("OnClick", function()
     if self.selectedCrafter then Util.Whisper(self.selectedCrafter) end
   end)
-  d.wish = W.Button(body, "La guilde la cherche", "gold", 200, 32)
-  d.wish:SetPoint("BOTTOMLEFT", pad, pad)
-  d.wish:SetScript("OnClick", function()
-    local e = self:SelectedEntry()
-    if not e then return end
-    local rec, msg = Crafts:Wish({ sp = e.id > 0 and e.id or nil, it = e.id < 0 and -e.id or nil, nm = e.name },
-      { id = e.p, name = e.pn })
-    UI:Toast(msg or (rec and "Ajoutée aux recettes recherchées." or "Impossible d'ajouter."), rec and "ok" or "warn")
+
+  -- Personne ne sait la faire : qui la veut, où la trouver, qui pourrait l'apprendre.
+  local lost = CreateFrame("Frame", nil, body)
+  lost:SetPoint("TOPLEFT", d.badges, "BOTTOMLEFT", 0, -10)
+  lost:SetPoint("BOTTOMRIGHT", 0, 0)
+  d.lost = lost
+  d.wantLabel = T.Text(lost, "caps", 11, C.muted)
+  d.wantLabel:SetPoint("TOPLEFT", 0, 0)
+  d.wantText = T.Para(lost, "body", 12, C.ivory, dw - 2 * pad - 20)
+  d.wantText:SetPoint("TOPLEFT", d.wantLabel, "BOTTOMLEFT", 0, -6)
+  d.wantText:SetMaxLines(3)
+  d.whereLabel = T.Text(lost, "caps", 11, C.muted)
+  d.whereLabel:SetPoint("TOPLEFT", 0, -78)
+  d.whereLabel:SetText("OÙ LA TROUVER")
+  d.where = W.Edit(lost, dw - 2 * pad, 26, "Vendeur, HV, butin… (après ton +1)", 120)
+  d.where:SetPoint("TOPLEFT", d.whereLabel, "BOTTOMLEFT", 0, -6)
+  d.where:SetScript("OnEnterPressed", function(e)
+    e:ClearFocus()
+    local w = self:SelectedWant()
+    if w then
+      Crafts:SetWhere(w.order.id, e:GetText())
+      UI:Toast("Indication enregistrée.", "ok")
+    end
   end)
+  d.whereBy = T.Text(lost, "body", 11, C.muted)
+  d.whereBy:SetPoint("TOPLEFT", d.where, "BOTTOMLEFT", 2, -4)
+  d.learnLabel = T.Text(lost, "caps", 11, C.muted)
+  d.learnLabel:SetPoint("TOPLEFT", 0, -150)
+  d.learnText = T.Para(lost, "body", 12, C.ivory, dw - 2 * pad - 20)
+  d.learnText:SetPoint("TOPLEFT", d.learnLabel, "BOTTOMLEFT", 0, -6)
+  d.learnText:SetMaxLines(3)
+  d.shopping = W.Button(lost, "Liste d'achat", "slate", 130, 32)
+  d.shopping:SetPoint("BOTTOMLEFT", 0, 0)
+  d.shopping:SetScript("OnClick", function() self.chips:Select("recherches", true) end)
+  W.Tip(d.shopping, "Liste d'achat", "L'onglet « Recettes recherchées » : les recettes que la guilde voudrait acheter, les plus demandées en tête.")
+  d.want = W.Button(lost, "+1 Je la veux", "gold", 170, 32)
+  d.want:SetPoint("BOTTOMRIGHT", -pad, 0)
+  d.want:SetScript("OnClick", function()
+    local e = self:SelectedEntry()
+    if e then self:ToggleWant(e) end
+  end)
+end
+
+function Tab:UpdateRecipeRow(row, item)
+  if item.kind == "cat" then
+    row.cat:Show(); row.rec:Hide()
+    row.catSign:SetText(item.open and "−" or "+")
+    row.catName:SetText(item.g.name .. T.Hex(C.muted) .. "  (" .. item.g.total .. ")|r")
+    if item.g.nobody > 0 then
+      row.catBadge:Show()
+      row.catBadge:Set(item.g.nobody .. " sans artisan", C.amber)
+    else
+      row.catBadge:Hide()
+    end
+    return
+  end
+  local e, want = item.e, item.want
+  row.cat:Hide(); row.rec:Show()
+  row.icon:SetTexture(Crafts:RecipeIcon(e.id) or 134400)
+  row.name:SetText(e.name)
+  row.sel:SetShown(self.selectedRecipe == e.id)
+  if #e.crafters == 0 then
+    row.badge:Set("Personne", C.amber)
+    local n = want and want.n or 0
+    row.plus:Show()
+    row.plus:SetLabel("+1  " .. n)
+    row.plus:SetActive(want and want.mine or false)
+    row.plus:SetScript("OnClick", function() self:ToggleWant(e) end)
+  else
+    row.badge:Set(#e.crafters .. " artisan" .. (#e.crafters > 1 and "s" or ""), C.teal)
+    row.plus:Hide()
+  end
 end
 
 function Tab:SelectedEntry()
   if not self.selectedRecipe then return nil end
-  for _, e in ipairs(self.quiItems or {}) do
+  for _, e in ipairs(self.quiEntries or {}) do
     if e.id == self.selectedRecipe then return e end
   end
   return nil
+end
+
+function Tab:SelectedWant()
+  local e = self:SelectedEntry()
+  return e and Crafts:WantMap()[e.id] or nil
+end
+
+function Tab:ToggleWant(e)
+  local order, on, msg = Crafts:ToggleWant(e)
+  if not order then
+    UI:Toast(msg or "Impossible d'ajouter.", "warn")
+  else
+    UI:Toast(on and "+1 : la guilde saura que tu voudrais cette recette." or "Ton +1 est retiré.", "ok")
+  end
+  self:RefreshQui()
 end
 
 function Tab:AskCraft()
@@ -208,58 +334,144 @@ function Tab:AskCraft()
   end
 end
 
+-- Le métier montré d'office : un de mes métiers connus de la guilde, sinon le premier.
+function Tab:DefaultProfession()
+  local list = Crafts:Professions()
+  local mine = {}
+  for _, c in ipairs(DR.Profile:MyChars()) do
+    for _, pr in ipairs(c.p or {}) do mine[pr.id] = true end
+  end
+  for _, pr in ipairs(list) do if mine[pr.id] then return pr.id end end
+  return list[1] and list[1].id or nil
+end
+
 function Tab:RefreshQui()
   if not self.recipes then return end
-  local profName = "tous"
-  for _, pr in ipairs(Crafts:Professions()) do if pr.id == self.prof then profName = pr.name end end
+  local professions = Crafts:Professions()
+  local valid = false
+  for _, pr in ipairs(professions) do if pr.id == self.prof then valid = true end end
+  if not self.allProfs and not valid then self.prof = self:DefaultProfession() end
+  if self.prof == nil and #professions > 0 and not self.allProfs then self.allProfs = false end
+  local profName = "tous les métiers"
+  for _, pr in ipairs(professions) do if pr.id == self.prof and not self.allProfs then profName = pr.name end end
+  if self.allProfs then profName = "tous les métiers" end
   self.profBtn:SetLabel("Métier : " .. profName)
-  local missingCount = #Crafts:Index().missing
-  self.modeChips:SetLabel("missing", "Personne ne l'a  " .. missingCount)
-  local items = Crafts:Search(self.search:GetText(), self.prof, self.mode)
-  self.quiItems = items
-  if self.mode == "missing" then
-    self.recipes:SetEmptyText(missingCount == 0
-      and "Rien à montrer : la liste se remplit quand un artisan ouvre sa fenêtre de métier avec l'add-on."
-      or "Aucune recette ne correspond.")
-  else
-    self.recipes:SetEmptyText(Crafts:Index().list[1] == nil
-      and "Pas encore de recettes. Chaque artisan n'a qu'à ouvrir sa fenêtre de métier une fois : ses recettes sont lues et partagées toutes seules."
-      or "Aucune recette ne correspond.")
+
+  -- Les types de craft, avec leurs recettes.
+  local text = self.search:GetText()
+  local searching = Util.Trim(text) ~= ""
+  local wants = Crafts:WantMap()
+  local groups = {}
+  if self.allProfs then
+    for _, pr in ipairs(professions) do
+      for _, g in ipairs(Crafts:Tree(pr.id, self.filter, text)) do
+        g.name = pr.name .. " · " .. g.name
+        groups[#groups + 1] = g
+      end
+    end
+  elseif self.prof then
+    groups = Crafts:Tree(self.prof, self.filter, text)
   end
+  local items, entries, nobodyTotal = {}, {}, 0
+  for _, g in ipairs(groups) do
+    local open = searching or not self.collapsed[g.name]
+    items[#items + 1] = { kind = "cat", g = g, open = open }
+    for _, e in ipairs(g.entries) do
+      entries[#entries + 1] = e
+      if #e.crafters == 0 then nobodyTotal = nobodyTotal + 1 end
+      if open then items[#items + 1] = { kind = "rec", e = e, want = wants[e.id] } end
+    end
+  end
+  self.quiItems, self.quiEntries = items, entries
+
+  self.modeChips:SetLabel("nobody", "Personne ne l'a" .. (self.filter == "nobody" and ("  " .. nobodyTotal) or ""))
+  local anything = #Crafts:Index().list > 0 or #Crafts:Index().missing > 0
+  self.recipes:SetEmptyText(not anything
+    and "Pas encore de recettes. Chaque artisan n'a qu'à ouvrir sa fenêtre de métier une fois : ses recettes sont lues et partagées toutes seules."
+    or (self.filter == "nobody" and "Rien à montrer : la liste se remplit quand un artisan ouvre sa fenêtre de métier avec l'add-on."
+      or "Aucune recette ne correspond."))
   self.recipes:SetItems(items, true)
 
+  -- Le catalogue : combien de recettes, lu par combien de membres.
+  if self.catalogBadge then
+    if self.prof and not self.allProfs then
+      local info = Crafts:CatalogInfo(self.prof)
+      self.catalogBadge:Set("Catalogue " .. profName .. " : " .. info.recipes .. " recettes · lu par " .. info.readers
+        .. " membre" .. (info.readers > 1 and "s" or ""), (info.members > info.readers) and C.amber or C.brume)
+    else
+      self.catalogBadge:Set("Catalogue : " .. #Crafts:Index().list + #Crafts:Index().missing .. " recettes · " .. #professions .. " métiers", C.brume)
+    end
+  end
+
+  self:RefreshQuiDetail()
+end
+
+function Tab:RefreshQuiDetail()
   local d = self.quiDetail
   local e = self:SelectedEntry()
   if not e then
     d.body:Hide(); d.empty:Show()
-    d.empty:SetText("Cherche un objet, un enchantement ou une potion : tu vois qui sait le faire, qui est en ligne, et tu peux lui demander en un clic.")
+    d.empty:SetText("Choisis une recette : tu vois qui sait la faire, qui est en ligne, et tu peux le lui demander en un clic. Une recette que personne n'a se marque d'un +1 : la guilde saura qu'il faut l'acheter.")
     return
   end
   d.empty:Hide(); d.body:Show()
   d.icon:SetTexture(Crafts:RecipeIcon(e.id) or 134400)
   d.name:SetText(e.name)
-  d.prof:SetText((e.pn or ""):upper())
-  if e.missing then
-    d.sub:SetText(T.Hex(C.amber) .. "Personne dans la guilde ne connaît cette recette.|r")
-    d.crafters:SetItems({})
-    d.crafters:SetEmptyText("Ajoute-la aux recettes recherchées : la guilde saura qu'il faut l'acheter, la trouver ou la faire apprendre.")
-    d.note:Hide(); d.ask:Hide(); d.whisper:Hide(); d.wish:Show()
-  else
-    local crafters = Crafts:CraftersOf(e.id)
-    d.sub:SetText("Artisans (" .. #crafters .. ")")
-    if not self.selectedCrafter and crafters[1] then
-      for _, c in ipairs(crafters) do
-        if not DR.Profile:IsMine(c.name) then self.selectedCrafter = c.name; break end
-      end
-    end
-    d.crafters:SetEmptyText(nil)
-    d.crafters:SetItems(crafters, true)
-    d.note:Show(); d.ask:Show(); d.whisper:Show(); d.wish:Hide()
-    local who = self.selectedCrafter and Util.ShortName(self.selectedCrafter) or "…"
-    d.ask:SetLabel("Demander à " .. who)
-    d.ask:SetEnabled(self.selectedCrafter ~= nil and not DR.Profile:IsMine(self.selectedCrafter))
-    d.whisper:SetEnabled(self.selectedCrafter ~= nil and not DR.Profile:IsMine(self.selectedCrafter))
+  d.prof:SetText(((e.pn or "") .. (e.cat and (" · " .. e.cat) or "")):upper())
+  local want = Crafts:WantMap()[e.id]
+  if #e.crafters == 0 then
+    d.known:Hide(); d.lost:Show()
+    d.badges:Set("Personne ne sait la faire", C.amber)
+    local st = want and Crafts.WISH_STATUS[want.order.s]
+    d.status:Show()
+    d.status:Set(st and st.label or "Pas encore cherchée", C.brume)
+    local names = want and Crafts:Wanters(want.order.id) or {}
+    d.wantLabel:SetText("QUI LA VEUT (" .. #names .. ")")
+    local shown = {}
+    for i, n in ipairs(names) do if i <= 8 then shown[#shown + 1] = Util.ShortName(n) end end
+    d.wantText:SetText(#names == 0 and (T.Hex(C.muted) .. "Personne pour l'instant. Fais +1 si tu la voudrais.|r")
+      or (table.concat(shown, " · ") .. (#names > 8 and (T.Hex(C.muted) .. "  et " .. (#names - 8) .. " autres|r") or "")))
+    d.where:SetEnabled(want ~= nil)
+    d.where:SetText(want and want.order.wh or "")
+    d.where:SetPlaceholder(want and "Vendeur, HV, butin… (Entrée pour enregistrer)" or "Disponible après ton +1")
+    d.whereBy:SetText(want and want.order.wh and ("Renseigné par " .. Util.ShortName(want.order.wb or want.order.by or "?")) or "")
+    d.learnLabel:SetText("QUI POURRAIT L'APPRENDRE")
+    local learn = Crafts:CouldLearn(e)
+    local lt = {}
+    for i, c in ipairs(learn) do if i <= 4 then lt[#lt + 1] = Util.ShortName(c.name) .. " " .. T.Hex(C.muted) .. c.lv .. "|r" end end
+    d.learnText:SetText(#learn == 0 and (T.Hex(C.muted) .. "Personne n'a ce métier dans la guilde.|r")
+      or (table.concat(lt, " · ") .. (#learn > 4 and (T.Hex(C.muted) .. "  et " .. (#learn - 4) .. " autres|r") or "")))
+    d.want:SetLabel(want and want.mine and "Retirer mon +1" or "+1 Je la veux")
+    d.want:SetStyle(want and want.mine and "slate" or "gold")
+    return
   end
+  d.lost:Hide(); d.known:Show()
+  d.badges:Set(#e.crafters .. " artisan" .. (#e.crafters > 1 and "s" or ""), C.teal)
+  d.status:Hide()
+  local crafters = Crafts:CraftersOf(e.id)
+  d.sub:SetText("Artisans (" .. #crafters .. ")")
+  if not self.selectedCrafter and crafters[1] then
+    for _, c in ipairs(crafters) do
+      if not DR.Profile:IsMine(c.name) then self.selectedCrafter = c.name; break end
+    end
+  end
+  d.crafters:SetEmptyText(nil)
+  d.crafters:SetItems(crafters, true)
+  -- Ceux qui ont le métier mais n'ont pas encore partagé leurs recettes.
+  local unshared = Crafts:Unshared(e.p)
+  self.remindName = nil
+  for _, u in ipairs(unshared) do
+    if not DR.Profile:IsMine(u.name) then self.remindName = u.name; break end
+  end
+  d.unshared:SetShown(self.remindName ~= nil)
+  d.remind:SetShown(self.remindName ~= nil)
+  if self.remindName then
+    d.unshared:SetText("Pas encore partagé : " .. Util.ShortName(self.remindName) .. (#unshared > 2 and (" et " .. (#unshared - 2) .. " autres") or ""))
+  end
+  local who = self.selectedCrafter and Util.ShortName(self.selectedCrafter) or "…"
+  d.ask:SetLabel("Demander à " .. who)
+  d.ask:SetEnabled(self.selectedCrafter ~= nil and not DR.Profile:IsMine(self.selectedCrafter))
+  d.whisper:SetEnabled(self.selectedCrafter ~= nil and not DR.Profile:IsMine(self.selectedCrafter))
 end
 
 ---------------------------------------------------------------------------
@@ -487,6 +699,7 @@ end
 function Tab:Refresh()
   if not self.f then return end
   for key, p in pairs(self.pages) do p:SetShown(key == self.view) end
+  self.catalogBadge:SetShown(self.view == "qui")
   if not DR.Store:IsReady() then
     self.recipes:SetEmptyText(IsInGuild() and "Chargement de la guilde…" or "Rejoins la guilde pour voir ses artisans.")
     self.recipes:SetItems({})

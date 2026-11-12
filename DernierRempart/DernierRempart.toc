@@ -1,9 +1,9 @@
 ## Interface: 16001
 ## Title: |cffE6C47CDernier Rempart|r
-## Notes: Sorties et inscriptions, artisans de la guilde, carte des membres. Relié à dernier-rempart.eu.
-## Notes-frFR: Sorties et inscriptions, artisans de la guilde, carte des membres. Relié à dernier-rempart.eu.
+## Notes: Sorties et inscriptions, artisans et recettes, carte des membres, effort de guerre lu dans la banque de guilde. Relié à dernier-rempart.eu.
+## Notes-frFR: Sorties et inscriptions, artisans et recettes, carte des membres, effort de guerre lu dans la banque de guilde. Relié à dernier-rempart.eu.
 ## Author: Guilde Dernier Rempart
-## Version: 0.2.1
+## Version: 0.3.0
 ## SavedVariables: DernierRempartDB
 ## IconTexture: Interface\AddOns\DernierRempart\Media\minimap
 ## AddonCompartmentFunc: DernierRempart_OnAddonCompartmentClick
@@ -28,6 +28,8 @@ Modules\Profile.lua
 Modules\Calendar.lua
 Modules\Crafts.lua
 Modules\GuildMap.lua
+Modules\Effort.lua
+Modules\Bank.lua
 Modules\Bridge.lua
 
 # Interface
@@ -37,6 +39,7 @@ UI\MainFrame.lua
 UI\TabSorties.lua
 UI\TabArtisans.lua
 UI\TabCarte.lua
+UI\TabEffort.lua
 UI\TabPersos.lua
 UI\TabPont.lua
 UI\Minimap.lua

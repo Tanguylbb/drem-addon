@@ -424,6 +424,58 @@ function Util.Whisper(full)
 end
 
 ---------------------------------------------------------------------------
+-- Or
+---------------------------------------------------------------------------
+-- Un montant en cuivre, lisible : "76 po", "12 po 40 pa", "30 pa", "5 pc".
+function Util.Money(copper)
+  copper = floor(tonumber(copper) or 0)
+  local po, pa, pc = floor(copper / 10000), floor(copper / 100) % 100, copper % 100
+  local parts = {}
+  if po > 0 then parts[#parts + 1] = po .. " po" end
+  if pa > 0 then parts[#parts + 1] = pa .. " pa" end
+  if pc > 0 and po == 0 then parts[#parts + 1] = pc .. " pc" end
+  if #parts == 0 then return "0 po" end
+  return table.concat(parts, " ")
+end
+
+-- Lit « 25 », « 25 po », « 25,5 » (po) ou « 12 po 40 pa » et rend des cuivres.
+function Util.ParseGold(text)
+  text = (text or ""):lower():gsub(",", "."):gsub("%s+", " ")
+  if text:match("^%s*$") then return nil end
+  local total, found = 0, false
+  for num, unit in text:gmatch("(%d+%.?%d*)%s*(%a*)") do
+    local n = tonumber(num)
+    if not n then return nil end
+    if unit == "" or unit == "po" or unit == "g" then total = total + n * 10000
+    elseif unit == "pa" or unit == "s" then total = total + n * 100
+    elseif unit == "pc" or unit == "c" then total = total + n
+    else return nil end
+    found = true
+  end
+  if not found then return nil end
+  return floor(total + 0.5)
+end
+
+-- « 10 nov. » : jour et mois courts.
+function Util.DayMonth(t)
+  local p = Util.DateParts(t)
+  return p.num .. " " .. p.mois
+end
+
+-- « Aujourd'hui, 20 h », « Hier, 18 h », « Il y a 3 jours », puis « 10 nov. ».
+-- Le journal de la banque ne donne l'heure qu'à l'heure près : pas de minutes.
+function Util.WhenText(t, now)
+  now = now or Util.Now()
+  local d, n = date("*t", t), date("*t", now)
+  local days = floor((time({ year = n.year, month = n.month, day = n.day, hour = 12 })
+    - time({ year = d.year, month = d.month, day = d.day, hour = 12 })) / 86400 + 0.5)
+  if days <= 0 then return format("Aujourd'hui, %d h", d.hour) end
+  if days == 1 then return format("Hier, %d h", d.hour) end
+  if days <= 14 then return format("Il y a %d jours", days) end
+  return Util.DayMonth(t)
+end
+
+---------------------------------------------------------------------------
 -- Rôles
 ---------------------------------------------------------------------------
 Util.ROLES = { "T", "H", "D" }

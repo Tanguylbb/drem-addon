@@ -13,7 +13,7 @@ DR.SITE = "dernier-rempart.eu"
 local function readVersion()
   local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
   local v = getMeta and getMeta(ADDON, "Version")
-  if not v or v == "" or v:find("@", 1, true) then v = "0.2.1" end
+  if not v or v == "" or v:find("@", 1, true) then v = "0.3.0" end
   return v
 end
 DR.version = readVersion()
@@ -134,6 +134,7 @@ end
 local DEFAULT_SETTINGS = {
   sharePosition = true,
   showMapPins = true,
+  readBank = true,
   minimap = { angle = 215, hide = false },
   window = nil,
   scale = 1,
@@ -222,9 +223,10 @@ end
 ---------------------------------------------------------------------------
 local HELP = {
   "/rempart : ouvrir ou fermer la fenêtre",
-  "/rempart sorties | artisans | carte | persos | pont : ouvrir un onglet",
+  "/rempart sorties | artisans | carte | effort | persos | pont : ouvrir un onglet",
   "/rempart synchro : demander les dernières données à la guilde",
   "/rempart position : partager ou non ta position avec la guilde",
+  "/rempart banque : ce que le jeu rend du journal de la banque de guilde (banque ouverte)",
   "/rempart minimap : afficher ou cacher le bouton de la minicarte",
   "/rempart version : version de l'add-on",
   "/rempart rapport : l'état de l'add-on, à envoyer si quelque chose cloche",
@@ -234,7 +236,7 @@ function DR:HandleSlash(input)
   local cmd = (input or ""):lower():match("^%s*(%S*)") or ""
   if cmd == "" then
     if DR.UI and DR.UI.Toggle then DR.UI:Toggle() end
-  elseif cmd == "sorties" or cmd == "artisans" or cmd == "carte" or cmd == "persos" or cmd == "pont" then
+  elseif cmd == "sorties" or cmd == "artisans" or cmd == "carte" or cmd == "effort" or cmd == "persos" or cmd == "pont" then
     if DR.UI and DR.UI.Open then DR.UI:Open(cmd) end
   elseif cmd == "synchro" or cmd == "sync" then
     if DR.Sync then DR.Sync:Request("manuel") end
@@ -244,6 +246,8 @@ function DR:HandleSlash(input)
     s.sharePosition = not s.sharePosition
     DR:Emit("SETTINGS_CHANGED", "sharePosition")
     DR:Print(s.sharePosition and "ta position est partagée avec la guilde." or "ta position n'est plus partagée.")
+  elseif cmd == "banque" then
+    for _, line in ipairs(DR.Bank:Diagnose()) do DR:Print(line) end
   elseif cmd == "minimap" then
     local m = DR.db.settings.minimap
     m.hide = not m.hide

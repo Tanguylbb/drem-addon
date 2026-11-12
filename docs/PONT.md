@@ -30,12 +30,12 @@ DR2:<JSON encodé en Base64 standard>
 | `g`     | Nom de la guilde (codes du jeu). |
 | `av`    | Version de l'add-on (codes du jeu). |
 | `since` | Codes du jeu : le code contient ce qui a changé depuis cette date (0 = tout). |
-| `events`, `signups`, `chars`, `recipes`, `orders`, `votes`, `meta` | Listes d'enregistrements, détaillées plus bas. Une liste vide est absente. |
+| `events`, `signups`, `chars`, `recipes`, `orders`, `votes`, `meta`, `goals`, `gifts` | Listes d'enregistrements, détaillées plus bas. Une liste vide est absente. |
 
 Ce que chaque sens transporte :
 
-- **Jeu → site** : `events`, `signups`, `chars`, `recipes`, `orders`, `votes`.
-- **Site → jeu** : `events`, `signups`, `orders`, `votes`, `meta`.
+- **Jeu → site** : `events`, `signups`, `chars`, `recipes`, `orders`, `votes`, `goals`, `gifts`.
+- **Site → jeu** : `events`, `signups`, `orders`, `votes`, `meta`, `goals`.
   Les enregistrements sans `by` sont signés `"site"` à l'import.
 
 ## La règle de fusion
@@ -114,6 +114,13 @@ tombale).
 `pn` nom du métier, `lv`/`mx` niveau, `l` liste triée des recettes apprises
 (identifiants de sort du jeu ; un nombre négatif est un identifiant d'objet).
 
+### `catalog` : toutes les recettes d'un métier — clé `p`
+
+Échangé entre add-ons (pas envoyé au site). `p`, `pn` (métier), `l` (toutes les
+recettes vues dans une fenêtre de métier, apprises ou non) et, depuis la 0.3,
+`g` : les mêmes rangées par type de craft, `[{ "n": "Sacs", "l": [id, …] }, …]`.
+C'est ce qui permet de lister aussi les recettes que personne n'a apprises.
+
 ### `orders` : commandes — clé `id`
 
 - `k = "recette"` : une recette que la guilde cherche. `s` :
@@ -126,9 +133,63 @@ Autres champs : `sp` sort, `it` objet, `link` lien du jeu, `nm` nom, `p`/`pn`
 métier, `req` demandeur, `to` artisan visé (craft), `m` mot (200), `who` qui
 l'a apprise ou faite.
 
+Pour une recette recherchée (`k = "recette"`), deux champs de la 0.3 disent
+**où la trouver** : `wh` (texte libre, 120 caractères : « Marchand de patrons,
+Hurlevent ») et `wb` (le perso qui l'a renseigné). Le « +1 » d'un membre sur une
+recette que personne ne sait faire est un `votes` sur cette commande (la
+commande est créée au premier +1).
+
 ### `votes` : soutiens « moi aussi » — clé `o|c`
 
 `o` id de la commande, `c` perso.
+
+### `goals` : objectifs de l'effort de guerre — clé `id`
+
+Fixés par les officiers (le jeu refuse un objectif dont l'auteur n'est pas
+officier ou `"site"`). Le site peut en créer : ils arrivent en jeu.
+
+| Champ | Sens |
+|-------|------|
+| `id`  | Identifiant (texte unique, 200 caractères au plus). |
+| `t`   | Titre (80). |
+| `k`   | `"or"` (une somme) ou `"objet"` (des objets, pour un raid par exemple). |
+| `amt` | La cible : en **cuivres** pour l'or (1 po = 10 000), en quantité pour un objet. |
+| `it`, `nm` | Objet attendu : identifiant et nom (`k = "objet"`). |
+| `tag` | Petite étiquette (40) : « Cœur du Magma ». |
+| `from` | Début (secondes). Les dons d'avant ne comptent pas. |
+| `to`  | Fin, facultative. Fermer un objectif la met à « maintenant ». |
+| `st`  | `"open"` ou `"closed"`. |
+
+### `gifts` : dons — clé `id`
+
+Un don est **lu dans le journal de la banque de guilde** par le membre qui
+ouvre la banque (`src = "bank"`), ou déclaré à la main (`src = "hand"`).
+
+| Champ | Sens |
+|-------|------|
+| `id`  | Identifiant (`b…` pour la banque, `h…` à la main). |
+| `c`   | Le perso qui a donné. |
+| `k`   | `"or"` ou `"objet"`. |
+| `a`   | Cuivres (or) ou quantité (objets). |
+| `it`, `nm` | L'objet (`k = "objet"`). |
+| `at`  | Quand, **à l'heure près** (le journal de la banque donne « il y a N heures »). |
+| `src` | `"bank"` ou `"hand"`. |
+| `rd`  | Qui a lu la ligne dans la banque (`src = "bank"`). |
+| `tab` | Onglet de la banque (objets). |
+| `g`   | Objectif choisi à la main par un officier ; `"-"` : ne compte pour aucun. |
+| `n`   | Petit mot (120), déclarations à la main. |
+
+**Compter sans doublon** (à reprendre côté site) : plusieurs membres lisent le
+même journal et estiment l'heure à une heure près, donc la même ligne peut
+exister sous plusieurs `id`. Pour les dons `src = "bank"` : regrouper ceux qui
+ont le même `c`, `k`, `a`, `it` et dont les `at` se suivent à 2 heures près
+(3 jours près s'ils ont plus de 25 jours) ; dans chaque groupe, compter le plus
+grand nombre de lignes d'**un même** `rd`. Les dons `src = "hand"` se comptent
+un par un.
+
+**Rattacher un don à un objectif** : le `g` du don s'il y en a un ; sinon
+l'unique objectif de même sorte (et même objet) dont la période `from` → `to`
+contient `at`. Plusieurs objectifs possibles : « à classer » par un officier.
 
 ### `meta` — clé `id`
 
@@ -136,6 +197,12 @@ l'a apprise ou faite.
   Posé par l'add-on à l'import, sert au point de fraîcheur.
 - `id = "config"` : `officerRank`, dernier rang compté comme officier
   (0 = chef de guilde). Réglé en jeu par le chef de guilde.
+- `id = "effort"` : `vis` = `"all"` ou `"officers"`, qui voit les noms et les
+  montants dans l'onglet Effort de guerre (réglage d'affichage).
+- `id = "bank"` : `at`, `by`, `n`, `nw` : dernière lecture du journal de la
+  banque (quand, par qui, combien de lignes, combien de nouvelles).
+- `id = "relay:<perso>"` : `at` : cet officier a appliqué des données déposées
+  par le relais automatique. Sert à montrer qui assure le relais.
 
 ## Exemple
 
@@ -170,10 +237,33 @@ echo DrPont::encode(['events' => $sorties, 'signups' => $inscriptions, 'at' => t
 Le test croisé `tests/interop/run.sh` vérifie que le PHP lit les codes de
 l'add-on et que l'add-on relit ceux du PHP, accents compris.
 
-## Relais automatique (plus tard)
+## Relais automatique (0.3)
 
-À chaque code généré, l'add-on garde le dernier dans sa sauvegarde
-(`WTF/Account/<COMPTE>/SavedVariables/DernierRempart.lua`, champ
-`DernierRempartDB.outbox`). Un petit programme chez un officier volontaire
-pourra le lire et l'envoyer au site tout seul, si le copier-coller prend plus
-de 5 minutes par semaine.
+L'add-on garde dans sa sauvegarde (`WTF/Account/<COMPTE>/SavedVariables/DernierRempart.lua`)
+le code à envoyer au site, dans `DernierRempartDB.outbox` :
+`{ code = "DR2:…", at = <heure du code>, n = <lignes>, relay = true }`. Il le
+prépare à chaque déconnexion et à chaque `/reload`, avec **tout ce qui a changé
+depuis ce que le site a déjà reçu** (voir `sent.at` ci-dessous).
+
+Un petit programme sur le PC d'un officier l'envoie au site, puis dépose un
+mini add-on `DernierRempart_Data` avec ce que le site a de nouveau. L'add-on le
+lit à la connexion et au `/reload`. Le programme et ses garde-fous sont décrits
+dans [`RELAIS.md`](RELAIS.md).
+
+```lua
+-- Interface\AddOns\DernierRempart_Data\Data.lua (écrit par le relais)
+DernierRempartData = {
+  v = 1,
+  at = 1794300000,                 -- heure des données du site
+  code = "DR2:…",                  -- site -> jeu : un code DR2 ordinaire
+  sent = {                         -- jeu -> site : ce que le site a bien reçu
+    at = 1794299000,               -- l'heure (`at`) du code accepté
+    when = 1794299900,             -- quand le relais l'a envoyé
+    counts = { signups = 3, orders = 1, chars = 2 },
+  },
+}
+```
+
+L'add-on n'applique `code` que si le joueur est officier, vérifie chaque
+champ (version, taille, forme) et n'applique un même `at` qu'une fois. Le
+copier-coller reste en secours et fait exactement le même travail.

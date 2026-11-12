@@ -24,6 +24,8 @@ final class DrPont
         'orders'  => ['id'],
         'votes'   => ['o', 'c'],
         'meta'    => ['id'],
+        'goals'   => ['id'],
+        'gifts'   => ['id'],
     ];
 
     /** Lit un code collé. Lève InvalidArgumentException avec un message en français. */
@@ -115,6 +117,109 @@ final class DrPont
             return $ua > $ub;
         }
         return strcmp(self::canon($a), self::canon($b)) > 0;
+    }
+
+    /**
+     * Total d'un objectif de l'effort de guerre, sans compter deux fois une ligne de la banque
+     * lue par plusieurs membres (voir « Compter sans doublon » dans docs/PONT.md).
+     *
+     * @param array $goal  enregistrement `goals`
+     * @param array $gifts enregistrements `gifts` (clé quelconque), sans pierres tombales
+     * @param array $goals tous les objectifs actifs (pour savoir si un don hésite entre deux)
+     */
+    public static function goalTotal(array $goal, array $gifts, array $goals): int
+    {
+        $total = 0;
+        foreach (self::uniqueGifts($gifts) as $g) {
+            if (self::goalOfGift($g, $goals) === ($goal['id'] ?? null)) {
+                $total += (int)$g['a'];
+            }
+        }
+        return $total;
+    }
+
+    /** Les dons sans doublon : liste de ['c','k','a','it','at','g']. */
+    public static function uniqueGifts(array $gifts, ?int $now = null): array
+    {
+        $now ??= time();
+        $out = [];
+        $bank = [];
+        foreach ($gifts as $r) {
+            if (!empty($r['del'])) {
+                continue;
+            }
+            if (($r['src'] ?? '') === 'bank') {
+                $key = ($r['c'] ?? '?') . '|' . ($r['k'] ?? '') . '|' . ($r['a'] ?? '') . '|' . ($r['it'] ?? '');
+                $bank[$key][] = $r;
+            } else {
+                $out[] = $r;
+            }
+        }
+        foreach ($bank as $list) {
+            usort($list, fn($x, $y) => ((int)($x['at'] ?? 0)) <=> ((int)($y['at'] ?? 0)));
+            $cluster = null;
+            $flush = function () use (&$cluster, &$out) {
+                if ($cluster === null) {
+                    return;
+                }
+                $perReader = [];
+                $explicit = null;
+                foreach ($cluster['recs'] as $r) {
+                    $who = $r['rd'] ?? ($r['by'] ?? '?');
+                    $perReader[$who] = ($perReader[$who] ?? 0) + 1;
+                    $explicit ??= $r['g'] ?? null;
+                }
+                $first = $cluster['recs'][0];
+                $first['g'] = $explicit;
+                for ($i = 0, $n = max($perReader); $i < $n; $i++) {
+                    $out[] = $first;
+                }
+            };
+            foreach ($list as $r) {
+                $at = (int)($r['at'] ?? 0);
+                if ($cluster !== null) {
+                    $tolerance = ($now - $cluster['last']) > 25 * 86400 ? 3 * 86400 : 7200;
+                    if ($at - $cluster['last'] <= $tolerance) {
+                        $cluster['recs'][] = $r;
+                        $cluster['last'] = $at;
+                        continue;
+                    }
+                    $flush();
+                }
+                $cluster = ['recs' => [$r], 'last' => $at];
+            }
+            $flush();
+        }
+        return $out;
+    }
+
+    /** L'objectif d'un don : son `g` explicite, sinon l'unique objectif possible. */
+    public static function goalOfGift(array $gift, array $goals): ?string
+    {
+        if (($gift['g'] ?? null) === '-') {
+            return null;
+        }
+        if (isset($gift['g'])) {
+            foreach ($goals as $g) {
+                if (($g['id'] ?? null) === $gift['g']) {
+                    return $g['id'];
+                }
+            }
+        }
+        $found = [];
+        $at = (int)($gift['at'] ?? 0);
+        foreach ($goals as $g) {
+            if (!empty($g['del']) || ($g['k'] ?? '') !== ($gift['k'] ?? '')) {
+                continue;
+            }
+            if (($g['k'] ?? '') === 'objet' && ($g['it'] ?? null) !== ($gift['it'] ?? null)) {
+                continue;
+            }
+            if ($at >= (int)($g['from'] ?? 0) && $at <= (int)($g['to'] ?? PHP_INT_MAX)) {
+                $found[] = $g['id'];
+            }
+        }
+        return count($found) === 1 ? $found[0] : null;
     }
 
     /**

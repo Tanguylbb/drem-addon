@@ -16,27 +16,54 @@ son rôle et un petit mot. Les compteurs tanks, soins et DPS montrent ce qui
 manque. Les officiers créent, modifient, ferment ou annulent les sorties en
 jeu ; celles du site arrivent par le Pont.
 
+**Sorties** (suite) — une ligne dit où en est la synchro (« À jour : dernière
+réponse de … ») et un bouton « Redemander à la guilde » la relance sans
+commande. Pour chaque sortie : combien ont répondu, combien n'ont pas répondu,
+combien n'ont pas l'add-on (à relancer sur Discord).
+
 **Artisans** — chaque artisan ouvre sa fenêtre de métier une fois : ses
-recettes sont lues et partagées. On cherche une recette et on voit qui sait la
-faire et qui est en ligne, puis on lui demande en un clic (demandée, acceptée,
-faite). La liste « Recettes recherchées » garde ce que la guilde aimerait
-avoir (un enchantement, une potion…) : on l'achète, on la trouve ou on
-l'achète entre nous, puis un artisan l'apprend. Chacun soutient avec
-« Moi aussi », et la demande se ferme toute seule quand quelqu'un l'apprend.
-« Personne ne l'a » montre les recettes d'un métier que personne ne connaît.
+recettes sont lues et partagées. L'onglet montre **toute la liste d'un métier,
+rangée par type de craft** (Sacs, Robes…) en dossiers qu'on ouvre et ferme,
+y compris les recettes que personne n'a apprises. Filtres « Tout », « Il me
+manque », « Personne ne l'a ». Sur une recette que personne ne sait faire, un
+**+1** dit « je voudrais que la guilde l'achète » : la fiche montre qui la
+veut, où la trouver (renseigné par les membres) et qui pourrait l'apprendre.
+Quand quelqu'un sait la faire, on le voit en ligne et on lui demande en un clic
+(demandée, acceptée, faite). La liste « Recettes recherchées » est la liste
+d'achat des officiers, rangée par nombre de +1.
+
+**Effort de guerre** — les officiers fixent des objectifs (une somme d'or, ou
+des objets pour un raid) avec une date. Quand un membre ouvre la **banque de
+guilde**, l'add-on lit son journal : les dépôts se rattachent tout seuls aux
+objectifs, sans rien déclarer. Un dépôt qui hésite entre deux objectifs est
+« à classer » par un officier. Les retraits ne comptent pas. Un don qui ne
+passe pas par la banque se déclare à la main. Les officiers choisissent si
+tout le monde voit les noms et les montants, ou seulement les totaux.
+Le journal de la banque se lit seulement banque ouverte et ne garde que les
+derniers mouvements : plus il y a de membres qui l'ouvrent, moins il en manque.
+`/rempart banque` dit ce que le jeu rend.
 
 **Carte** — où sont les membres de la guilde : sur la carte de la zone dans
-l'onglet Carte, et sur la carte du monde du jeu. Les positions ne circulent
-que quand quelqu'un regarde une carte, jamais en donjon, en raid ou en champ de
-bataille, et chacun peut couper le partage (`/rempart position`).
+l'onglet Carte, et sur la carte du monde du jeu. Trois chiffres disent
+pourquoi la carte est vide (en ligne, avec l'add-on, qui partage), et chaque
+membre a sa raison : sur la carte, autre zone, en donjon, position coupée, pas
+d'add-on. Les positions ne circulent que quand quelqu'un regarde une carte,
+jamais en donjon, en raid ou en champ de bataille, et chacun peut couper le
+partage depuis l'onglet (ou `/rempart position`).
 
 **Mes persos** — la fiche de chaque perso (classe, niveau, spé, rôle, métiers)
-est lue toute seule et partagée avec la guilde.
+est lue toute seule et partagée avec la guilde. Les recettes ne se lisent que
+quand le joueur ouvre un métier (le jeu ne laisse pas l'add-on le faire à sa
+place) : l'onglet dit quels métiers sont **lus** et lesquels sont **à ouvrir**,
+et une seule ligne dans le chat le rappelle à la connexion.
 
-**Pont** (officiers) — un code à copier-coller relie le jeu et le site, dans
-les deux sens, en moins d'une minute. Le point en haut de la fenêtre dit si les
-données du site sont fraîches (vert, orange, rouge). Format :
-[docs/PONT.md](docs/PONT.md).
+**Pont** (officiers) — l'état du **relais automatique** depuis le PC d'un
+officier (ce qui est parti au site, ce qui est arrivé, qui assure le relais et
+qui est en secours), et le copier-coller qui reste en secours, dans les deux
+sens, en moins d'une minute. Le point en haut de la fenêtre dit si les données
+du site sont fraîches (vert, orange, rouge). Formats :
+[docs/PONT.md](docs/PONT.md) (codes) et [docs/RELAIS.md](docs/RELAIS.md)
+(le petit programme du relais).
 
 ## Comment les données circulent
 
@@ -66,9 +93,10 @@ nombre dans `DernierRempart/DernierRempart.toc`.
 | Commande | Effet |
 |----------|-------|
 | `/rempart` | Ouvrir ou fermer la fenêtre |
-| `/rempart sorties` · `artisans` · `carte` · `persos` · `pont` | Ouvrir un onglet |
+| `/rempart sorties` · `artisans` · `carte` · `effort` · `persos` · `pont` | Ouvrir un onglet |
 | `/rempart synchro` | Redemander les dernières données à la guilde |
 | `/rempart position` | Partager ou non sa position |
+| `/rempart banque` | Ce que le jeu rend du journal de la banque de guilde (banque ouverte) |
 | `/rempart minimap` | Afficher ou cacher le bouton de la minicarte |
 | `/rempart version` | Version de l'add-on |
 | `/rempart rapport` | État de l'add-on, à envoyer si quelque chose cloche |
@@ -96,7 +124,7 @@ déconnectés. Ce que le client refuse aux add-ons est détaillé dans
 ## Développer
 
 ```
-lua5.1 tests/run.lua          # 94 tests hors jeu, avec un faux client WoW
+lua5.1 tests/run.lua          # tests hors jeu, avec un faux client WoW
 bash tests/interop/run.sh     # le PHP du site et l'add-on se relisent
 luacheck DernierRempart       # vérification statique
 ```
@@ -110,10 +138,11 @@ de Forever et le Pont sont testés de bout en bout. Ce qui demande le vrai jeu e
 ```
 DernierRempart/
   Core/      démarrage, outils, JSON, Base64, magasin, guilde, messages, synchro
-  Modules/   fiche perso, sorties, artisans, carte, pont
+  Modules/   fiche perso, sorties, artisans, carte, effort de guerre, banque, pont
   UI/        charte, composants, fenêtre et onglets, minicarte, épingles
   Media/     blason, pictos de rôle, polices Marcellus et Open Sans (licence OFL)
 tools/php/   DrPont.php : lecture et écriture des codes DR2 pour le site
+tools/relais/ gabarit du mini add-on de données déposé par le relais
 ```
 
 Polices : Marcellus et Marcellus SC (Brian J. Bonislawsky), Open Sans (The

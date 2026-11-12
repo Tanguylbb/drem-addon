@@ -103,6 +103,15 @@ function W.Button(parent, text, style, width, height)
     self.active = on and true or false
     W.StyleButton(self)
   end
+  -- Change de style (or <-> ardoise) : l'action principale d'un écran change de
+  -- couleur quand elle devient « retirer ».
+  function b:SetStyle(newStyle)
+    if self.style == newStyle then return end
+    self.style = newStyle
+    local def = STYLES[newStyle] or STYLES.ghost
+    T.SetFont(self.label, def.font, def.size)
+    W.StyleButton(self)
+  end
   b:SetScript("OnDisable", function(self) self:SetAlpha(0.45) end)
   b:SetScript("OnEnable", function(self) self:SetAlpha(1) end)
   b:SetLabel(text)
@@ -552,6 +561,44 @@ function W.Badge(parent)
     T.Color(self.label, c or C.brume)
     T.Border(self, c or C.line2, 0.55)
     self:SetWidth((self.label:GetStringWidth() or 40) + 16)
+  end
+  return f
+end
+
+-- Barre de progression : fond creux, remplissage coloré. Largeur donnée d'avance.
+function W.Bar(parent, width, height)
+  local f = CreateFrame("Frame", nil, parent)
+  f:SetSize(width, height or 8)
+  f.barWidth = width
+  f.bg = T.Fill(f, C.sunk)
+  T.Border(f, C.line)
+  f.fill = f:CreateTexture(nil, "ARTWORK")
+  f.fill:SetPoint("TOPLEFT", 1, -1)
+  f.fill:SetPoint("BOTTOMLEFT", 1, 1)
+  function f:Set(ratio, color)
+    ratio = math.max(0, math.min(1, ratio or 0))
+    color = color or C.teal
+    self.fill:SetColorTexture(color[1], color[2], color[3], 1)
+    self.fill:SetWidth(math.max(0.01, (self.barWidth - 2) * ratio))
+    self.fill:SetShown(ratio > 0)
+  end
+  return f
+end
+
+-- Petit chiffre sur fond creux avec sa légende (« 12 » « en ligne »).
+function W.Stat(parent, width)
+  local f = CreateFrame("Frame", nil, parent)
+  f:SetSize(width, 46)
+  f.bg = T.Fill(f, C.sunk)
+  T.Border(f, C.line)
+  f.num = T.Text(f, "title", 20, C.ivory)
+  f.num:SetPoint("TOP", 0, -5)
+  f.label = T.Text(f, "body", 11, C.muted)
+  f.label:SetPoint("BOTTOM", 0, 5)
+  function f:Set(n, label, color)
+    self.num:SetText(n)
+    T.Color(self.num, color or C.ivory)
+    self.label:SetText(label)
   end
   return f
 end

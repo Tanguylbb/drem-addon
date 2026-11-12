@@ -1,0 +1,7 @@
+## Interface: 16001
+## Title: Dernier Rempart (données du site)
+## Notes: Déposé par le relais de Dernier Rempart. Ne rien modifier à la main.
+## Dependencies: DernierRempart
+## Version: 1
+
+Data.lua

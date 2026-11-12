@@ -112,6 +112,42 @@ function Cal:MySignup(eventId)
   return best
 end
 
+-- Qui a vu la sortie ? Compte les persos de la liste de guilde :
+--   answered  : ont répondu (un par compte)
+--   pending   : ont l'add-on mais n'ont pas répondu (un par compte)
+--   noAddon   : n'ont pas l'add-on (à relancer sur Discord)
+-- Approximatif : un joueur qui a plusieurs persos sans add-on compte plusieurs fois.
+function Cal:SeenBy(eventId)
+  local answeredAcc, answeredName, answered = {}, {}, 0
+  for _, s in ipairs(Store:List("signups", function(x) return x.e == eventId end)) do
+    local acc = s.acc
+    if not acc then
+      local c = Store:Get("chars", s.c)
+      acc = c and c.acc
+    end
+    answeredName[s.c] = true
+    if acc then
+      if not answeredAcc[acc] then answeredAcc[acc] = true; answered = answered + 1 end
+    else
+      answered = answered + 1
+    end
+  end
+  local pending, noAddon, pendingAcc = 0, 0, {}
+  for _, m in pairs(DR.Guild.members) do
+    if DR.Guild:HasAddon(m.name) then
+      local c = Store:Get("chars", m.name)
+      local acc = c and c.acc
+      if not answeredName[m.name] and not (acc and (answeredAcc[acc] or pendingAcc[acc])) then
+        pending = pending + 1
+        if acc then pendingAcc[acc] = true end
+      end
+    else
+      noAddon = noAddon + 1
+    end
+  end
+  return { answered = answered, pending = pending, noAddon = noAddon }
+end
+
 function Cal:IsOpen(ev)
   if not ev or ev.st == "cancelled" or ev.st == "closed" then return false end
   local now = Util.Now()

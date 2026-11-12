@@ -27,7 +27,7 @@ $recipes = $payload['recipes'][0] ?? null;
 check($recipes !== null && $recipes['l'] === [3451] && $recipes['pn'] === 'Alchimie', 'recettes lues');
 $wish = $payload['orders'][0] ?? null;
 check($wish !== null && $wish['sp'] === 17635 && $wish['k'] === 'recette', 'recette recherchée');
-foreach (['events', 'signups', 'chars', 'recipes', 'orders', 'votes'] as $ds) {
+foreach (['events', 'signups', 'chars', 'recipes', 'orders', 'votes', 'goals', 'gifts'] as $ds) {
     $good = true;
     foreach ($payload[$ds] ?? [] as $rec) {
         $good = $good && DrPont::keyOf($ds, $rec) !== null && is_int($rec['u']);
@@ -37,6 +37,13 @@ foreach (['events', 'signups', 'chars', 'recipes', 'orders', 'votes'] as $ds) {
     }
     check($good, "$ds : clé et date présentes, aucun champ local (" . count($payload[$ds] ?? []) . ")");
 }
+
+// Effort de guerre : l'objectif est en cuivres, et le total ne compte pas deux fois la même ligne de la banque.
+$goal = $payload['goals'][0] ?? null;
+check($goal !== null && $goal['k'] === 'or' && $goal['amt'] === 2000000, 'objectif en or, cible en cuivres');
+check(count($payload['gifts'] ?? []) === 3, 'deux lectures de la banque et un don déclaré');
+$total = DrPont::goalTotal($goal, $payload['gifts'], $payload['goals']);
+check($total === 350000, "total sans doublon : 35 po (obtenu $total)");
 
 // Fusion côté site : coller deux fois ne change rien.
 [$base, $stats] = DrPont::mergeAll([], $payload);

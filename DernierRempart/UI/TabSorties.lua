@@ -13,6 +13,7 @@ local LIST_W = 316
 local GROUP_LABEL = { yes = "Présents", maybe = "Peut-être", bench = "Remplaçants", no = "Absents" }
 local NEED_LABEL = { T = "Tanks voulus", H = "Soins voulus", D = "DPS voulus" }
 local ROW_H = 62
+local TOP = 38 -- la ligne d'état de la synchro, au-dessus des pastilles
 
 local function kindColor(k)
   local def = Cal.KINDS[k or "raid"] or Cal.KINDS.autre
@@ -119,17 +120,38 @@ function Tab:Create(f, width, height)
     self.view = key
     if user then self.selected = nil; self:Refresh() end
   end)
-  self.chips:SetPoint("TOPLEFT", 0, -2)
+  self.chips:SetPoint("TOPLEFT", 0, -2 - TOP)
   self.chips:Select("upcoming")
+
+  -- Où en est la synchro : une phrase, et de quoi la redemander d'un clic.
+  local strip = CreateFrame("Frame", nil, f)
+  strip:SetPoint("TOPLEFT", 0, 0)
+  strip:SetSize(width, 32)
+  T.Fill(strip, C.sunk)
+  T.Border(strip, C.line)
+  self.syncDot = W.Dot(strip, 8)
+  self.syncDot:SetPoint("LEFT", 12, 0)
+  self.syncText = T.Text(strip, "body", 12, C.brume)
+  self.syncText:SetPoint("LEFT", self.syncDot, "RIGHT", 8, 0)
+  self.syncText:SetPoint("RIGHT", -200, 0)
+  self.syncBtn = W.Button(strip, "Redemander à la guilde", "ghost", 184, 22)
+  self.syncBtn:SetPoint("RIGHT", -6, 0)
+  self.syncBtn:SetScript("OnClick", function()
+    DR.Sync:Request("manuel")
+    UI:Toast("Demande envoyée à la guilde. Les réponses arrivent en quelques secondes.", "ok")
+    self:RefreshSync()
+  end)
+  W.Tip(self.syncBtn, "Redemander à la guilde",
+    "Demande aux membres en ligne qui ont l'add-on de t'envoyer ce que tu n'as pas (sorties, inscriptions, recettes). Aucune commande à taper.")
 
   self.alert = T.Text(f, "semi", 12, C.amber)
   self.alert:SetPoint("LEFT", self.chips, "LEFT", 210, 0)
 
   self.newBtn = W.Button(f, "Nouvelle sortie", "gold", 150, 30)
-  self.newBtn:SetPoint("TOPRIGHT", 0, 0)
+  self.newBtn:SetPoint("TOPRIGHT", 0, -TOP)
   self.newBtn:SetScript("OnClick", function() self:OpenForm(nil) end)
 
-  local listH = height - 42
+  local listH = height - 42 - TOP
   self.list = W.List(f, {
     width = LIST_W, height = listH, rowHeight = ROW_H + 6,
     create = function(row)
@@ -142,11 +164,11 @@ function Tab:Create(f, width, height)
     update = function(row, ev) updateRow(row.inner, ev) end,
     click = function(ev) self.selected = ev.id; self:Refresh() end,
   })
-  self.list:SetPoint("TOPLEFT", 0, -42)
+  self.list:SetPoint("TOPLEFT", 0, -42 - TOP)
 
   local dw = width - LIST_W - 14
   self.detail = T.Card(f)
-  self.detail:SetPoint("TOPLEFT", LIST_W + 14, -42)
+  self.detail:SetPoint("TOPLEFT", LIST_W + 14, -42 - TOP)
   self.detail:SetSize(dw, listH)
   self:BuildDetail(self.detail, dw, listH)
   self:BuildForm(f, dw, listH)
@@ -204,9 +226,29 @@ function Tab:BuildDetail(d, w, h)
   d.missing = T.Text(body, "semi", 12, C.amber)
   d.missing:SetPoint("LEFT", prev, "RIGHT", 12, 0)
 
+  -- Qui l'a vue : ceux qui ont répondu, ceux qui ne l'ont pas fait, ceux qui
+  -- n'ont pas l'add-on (à relancer sur Discord).
+  local seen = CreateFrame("Frame", nil, body)
+  seen:SetPoint("TOPLEFT", d.needs.T, "BOTTOMLEFT", 0, -10)
+  seen:SetPoint("RIGHT", -pad, 0)
+  seen:SetHeight(26)
+  T.Fill(seen, C.sunk)
+  T.Border(seen, C.line)
+  d.seenLabel = T.Text(seen, "caps", 10, C.muted)
+  d.seenLabel:SetPoint("LEFT", 10, 0)
+  d.seenLabel:SetText("QUI L'A VUE")
+  d.seenText = T.Text(seen, "body", 12, C.brume)
+  d.seenText:SetPoint("LEFT", 92, 0)
+  d.seenText:SetPoint("RIGHT", -8, 0)
+  W.Tip(seen, "Qui a vu la sortie",
+    "Les membres qui ont l'add-on et ont répondu, ceux qui ne l'ont pas fait, et ceux qui n'ont pas l'add-on : à ceux-là, il faut écrire sur Discord.",
+    "Chiffres approximatifs : un joueur qui a plusieurs persos sans add-on peut compter plusieurs fois.")
+  seen:EnableMouse(true)
+  d.seen = seen
+
   -- Ma réponse.
   local box = CreateFrame("Frame", nil, body)
-  box:SetPoint("TOPLEFT", d.needs.T, "BOTTOMLEFT", 0, -12)
+  box:SetPoint("TOPLEFT", seen, "BOTTOMLEFT", 0, -10)
   box:SetPoint("RIGHT", -pad, 0)
   box:SetHeight(82)
   T.Fill(box, C.sunk)
@@ -260,7 +302,7 @@ function Tab:BuildDetail(d, w, h)
   d.state:SetPoint("RIGHT", -pad, 0)
 
   -- Inscrits.
-  local listTop = 16 + 20 + 34 + 22 + 40 + 36 + 12 + 82 + 26
+  local listTop = 16 + 20 + 34 + 22 + 40 + 36 + 12 + 82 + 26 + 36
   d.signups = W.List(body, {
     width = w - 2 * pad, height = math.max(60, h - listTop - pad), rowHeight = 19,
     create = function(row)
@@ -286,7 +328,7 @@ end
 
 function Tab:BuildForm(f, w, h)
   local form = T.Card(f)
-  form:SetPoint("TOPLEFT", LIST_W + 14, -42)
+  form:SetPoint("TOPLEFT", LIST_W + 14, -42 - TOP)
   form:SetSize(w, h)
   form:SetFrameLevel(self.detail:GetFrameLevel() + 10)
   form:EnableMouse(true)
@@ -517,7 +559,19 @@ function Tab:Refresh()
     self.list:SetEmptyText("Aucune sortie prévue pour l'instant. Les officiers les créent sur le site ou ici, puis elles arrivent toutes seules.")
   end
   self.list:SetItems(items, true)
+  self:RefreshSync()
   self:RefreshDetail()
+end
+
+-- La ligne d'état de la synchro.
+local SYNC_COLOR = { ok = C.green, wait = C.amber, alone = C.muted, late = C.amber }
+
+function Tab:RefreshSync()
+  local s = DR.Sync:Status()
+  local c = SYNC_COLOR[s.level] or C.muted
+  self.syncDot:SetColorTexture(c[1], c[2], c[3], 1)
+  self.syncText:SetText(s.text)
+  self.syncBtn:SetEnabled(DR.Store:IsReady() and IsInGuild())
 end
 
 function Tab:RefreshDetail()
@@ -557,6 +611,10 @@ function Tab:RefreshDetail()
     n:Set(role, counts[role], needs[role])
   end
   d.missing:SetText(Cal:MissingText(ev, counts) or (needs.T + needs.H + needs.D > 0 and (T.Hex(C.teal) .. "Compo complète|r") or ""))
+
+  local seen = Cal:SeenBy(ev.id)
+  d.seenText:SetText(T.Hex(C.teal) .. seen.answered .. "|r ont répondu   " .. T.Hex(C.amber) .. seen.pending
+    .. "|r n'ont pas répondu   " .. T.Hex(C.amber) .. seen.noAddon .. "|r sans add-on")
 
   local officer = DR.Guild:IAmOfficer()
   d.editBtn:SetShown(officer)

@@ -163,6 +163,35 @@ function Guild:SetOfficerRank(n)
   return true
 end
 
+---------------------------------------------------------------------------
+-- Qui a l'add-on ?
+---------------------------------------------------------------------------
+-- Un membre a l'add-on s'il m'a envoyé un message cette session, ou s'il a
+-- déjà partagé sa fiche perso avec la guilde.
+Guild.addonSeen = {}
+
+function Guild:MarkAddon(name)
+  name = Util.FullName(name)
+  if name then self.addonSeen[name] = Util.Now() end
+end
+
+function Guild:HasAddon(name)
+  name = Util.FullName(name)
+  if not name then return false end
+  if Util.SameName(name, DR.playerName) then return true end
+  if self.addonSeen[name] then return true end
+  return DR.Store:IsReady() and DR.Store:Get("chars", name) ~= nil
+end
+
+-- Membres en ligne qui ont l'add-on, moi compris.
+function Guild:OnlineWithAddon()
+  local n = 0
+  for _, m in pairs(self.members) do
+    if m.online and self:HasAddon(m.name) then n = n + 1 end
+  end
+  return n
+end
+
 -- Membres en ligne, triés par nom.
 function Guild:OnlineMembers()
   local out = {}

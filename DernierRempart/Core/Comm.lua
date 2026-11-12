@@ -225,6 +225,7 @@ function Comm:OnMessage(prefix, text, channel, sender)
   if Util.IsSecret(text) or Util.IsSecret(sender) or type(sender) ~= "string" then return end
   sender = Util.FullName(sender)
   if not sender or Util.SameName(sender, DR.playerName) then return end
+  if DR.Guild and DR.Guild.MarkAddon then DR.Guild:MarkAddon(sender) end
   local full = Comm.Reassemble(partial, sender .. prefix, text)
   if not full then return end
   self.received = self.received + 1

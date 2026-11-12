@@ -37,4 +37,7 @@ read_globals = {
   "GetNumTradeSkills", "GetTradeSkillInfo", "GetTradeSkillLine", "GetTradeSkillRecipeLink",
   "GetTradeSkillItemLink", "GetNumCrafts", "GetCraftInfo", "GetCraftItemLink", "GetCraftDisplaySkillLine",
   "GetItemInfo", "GetItemIcon", "GetSpellInfo", "GetSpellTexture",
+  -- Banque de guilde
+  "QueryGuildBankLog", "GetNumGuildBankTabs", "GetGuildBankTabInfo", "GetNumGuildBankMoneyTransactions",
+  "GetGuildBankMoneyTransaction", "GetNumGuildBankTransactions", "GetGuildBankTransaction", "MAX_GUILDBANK_TABS",
 }

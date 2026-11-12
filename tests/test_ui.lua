@@ -58,7 +58,7 @@ return function(H)
     A.tradeskill = { id = 171, name = "Alchimie", all = { 3451, 17556 }, learned = { [3451] = true } }
     A:Fire("TRADE_SKILL_SHOW")
     net:Advance(5)
-    for _, key in ipairs({ "artisans", "carte", "persos", "pont", "sorties" }) do
+    for _, key in ipairs({ "artisans", "carte", "effort", "persos", "pont", "sorties" }) do
       A:Slash(key)
       H.eq(UI.current, key)
     end
@@ -71,8 +71,8 @@ return function(H)
     local tab = B.DR.UI.tabs.artisans
     tab.search:SetText("soins")
     tab:RefreshQui()
-    H.eq(#tab.quiItems, 1)
-    tab.selectedRecipe = tab.quiItems[1].id
+    H.eq(#tab.quiEntries, 1)
+    tab.selectedRecipe = tab.quiEntries[1].id
     tab:RefreshQui()
     H.eq(tab.selectedCrafter, "Shenryu-Rempart")
     tab.quiDetail.ask:Click()

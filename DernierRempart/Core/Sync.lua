@@ -18,9 +18,11 @@ local BATCH_BYTES = 1800
 
 local myRequests = {}     -- id -> { at, received = { ds = { key = rec } } }
 local pendingReplies = {} -- id -> { cancelled }
+local pendingAcks = {}    -- id -> { cancelled }
 local pendingPush = {}    -- ds|key -> true
 local outgoing = {}       -- ds -> { key -> rec } en attente d'envoi groupé
 Sync.lastRequest, Sync.lastData = 0, 0
+Sync.lastReply = nil      -- { by, at } : le dernier à avoir répondu à une de mes demandes
 Sync.newerVersion = nil
 
 function Sync:OnLogin()
@@ -128,6 +130,12 @@ function Sync:Accept(ds, rec)
       local m = Guild:Get(rec.by or "")
       return m ~= nil and m.rankIndex == 0
     end
+    -- « La banque a été lue » : n'importe quel membre qui ouvre la banque.
+    if rec.id == "bank" then return true end
+    return Guild:IsOfficer(rec.by) or rec.by == "site"
+  end
+  -- Les objectifs de l'effort de guerre sont fixés par les officiers.
+  if ds == "goals" then
     return Guild:IsOfficer(rec.by) or rec.by == "site"
   end
   return true
@@ -193,6 +201,12 @@ function Sync:OnMessage(msg, sender)
   elseif t == "sc" then
     local p = pendingReplies[msg.id]
     if p then p.cancelled = true end
+    self:NoteReply(msg.id, sender)
+  elseif t == "sa" then
+    -- « Je n'ai rien de plus que toi » : un seul membre le dit, les autres se taisent.
+    local p = pendingAcks[msg.id]
+    if p then p.cancelled = true end
+    self:NoteReply(msg.id, sender)
   elseif t == "sr" then
     local req = myRequests[msg.id]
     local received
@@ -200,10 +214,41 @@ function Sync:OnMessage(msg, sender)
       req.received[msg.ds] = req.received[msg.ds] or {}
       received = req.received[msg.ds]
     end
+    self:NoteReply(msg.id, sender)
     if self:MergeList(msg.ds, msg.r, received) > 0 then DR:Emit("SYNC_RECEIVED", msg.ds) end
   elseif t == "se" then
     self:OnResponseEnd(msg)
   end
+end
+
+-- Quelqu'un répond à une de MES demandes : on garde qui et quand.
+function Sync:NoteReply(id, sender)
+  if not myRequests[id] then return end
+  self.lastReply = { by = sender, at = Util.Now() }
+  DR:Emit("SYNC_REPLY", sender)
+end
+
+-- État de la synchro, en une phrase pour l'onglet Sorties.
+-- level : "ok" (à jour), "wait" (en cours), "alone" (personne d'autre), "late" (pas de réponse).
+function Sync:Status()
+  local now = Util.Now()
+  if not Store:IsReady() then
+    return { level = "wait", text = IsInGuild() and "Chargement de la guilde…" or "Pas de guilde : rien n'est partagé." }
+  end
+  local withAddon = DR.Guild:OnlineWithAddon()
+  local others = math.max(0, withAddon - 1)
+  local tail = " · " .. withAddon .. " membre" .. (withAddon > 1 and "s ont" or " a") .. " l'add-on en ligne"
+  local reply = self.lastReply
+  if reply and now - reply.at < 30 * 60 then
+    return { level = "ok", text = "À jour : dernière réponse de " .. Util.ShortName(reply.by) .. " " .. Util.Ago(reply.at) .. tail }
+  end
+  if self.lastRequest == 0 or now - self.lastRequest < 20 then
+    return { level = "wait", text = "Synchro en cours…" .. tail }
+  end
+  if others == 0 then
+    return { level = "alone", text = "Personne d'autre n'a l'add-on en ligne : rien à recevoir pour l'instant." }
+  end
+  return { level = "late", text = "Pas de réponse depuis " .. Util.Ago(self.lastRequest):gsub("^il y a ", "") .. " : redemande à la guilde." .. tail }
 end
 
 -- Quelqu'un demande : si nos données diffèrent, on se propose pour répondre.
@@ -217,7 +262,18 @@ function Sync:OnRequest(msg, sender)
       if #b > 0 then diffs[ds] = b; any = true end
     end
   end
-  if not any then return end
+  if not any then
+    -- Rien à envoyer : un seul membre le dit, pour que le demandeur sache que
+    -- la guilde a répondu et qu'il est à jour.
+    local ack = { cancelled = false }
+    pendingAcks[msg.id] = ack
+    DR.After(3 + math.random() * 5, function()
+      pendingAcks[msg.id] = nil
+      if ack.cancelled then return end
+      DR.Comm:Send({ t = "sa", id = msg.id, to = sender }, "bulk")
+    end)
+    return
+  end
   local reply = { cancelled = false }
   pendingReplies[msg.id] = reply
   local officer = DR.Guild:IAmOfficer()

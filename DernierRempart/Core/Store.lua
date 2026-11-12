@@ -19,7 +19,7 @@ DR.Store = Store
 local Json = DR.Json
 
 Store.BUCKETS = 16
-Store.DATASETS = { "events", "signups", "chars", "recipes", "catalog", "orders", "votes", "meta" }
+Store.DATASETS = { "events", "signups", "chars", "recipes", "catalog", "orders", "votes", "meta", "goals", "gifts" }
 
 local DAY = 86400
 
@@ -33,12 +33,15 @@ local KEYS = {
   orders = function(r) return r.id end,
   votes = function(r) return r.o and r.c and (r.o .. "|" .. r.c) end,
   meta = function(r) return r.id end,
+  goals = function(r) return r.id end,
+  gifts = function(r) return r.id end,
 }
 
 -- Champs gardés sur une pierre tombale (ceux qui forment la clé).
 local KEY_FIELDS = {
   events = { "id" }, signups = { "e", "c" }, chars = { "n" }, recipes = { "c", "p" },
   catalog = { "p" }, orders = { "id" }, votes = { "o", "c" }, meta = { "id" },
+  goals = { "id" }, gifts = { "id" },
 }
 
 -- Durée de vie avant oubli (les données expirées ne sont plus échangées).
@@ -52,6 +55,8 @@ local function isExpired(ds, r, now)
   end
   if ds == "votes" then return (r.u or 0) < now - 120 * DAY end
   if ds == "chars" or ds == "recipes" then return (r.u or 0) < now - 180 * DAY end
+  if ds == "goals" then return r.st == "closed" and (r.u or 0) < now - 120 * DAY end
+  if ds == "gifts" then return (r.at or r.u or 0) < now - 150 * DAY end
   return false
 end
 Store.IsExpired = isExpired
@@ -207,7 +212,8 @@ function Store:Delete(ds, key, author)
 end
 
 -- Vérifie la forme d'un enregistrement reçu d'ailleurs.
-local LIMITS = { t = 80, note = 500, m = 200, rdv = 120, lead = 64, nm = 120, link = 400, pn = 64, sp = 64 }
+local LIMITS = { t = 80, note = 500, m = 200, rdv = 120, lead = 64, nm = 120, link = 400, pn = 64, sp = 64,
+  wh = 120, wb = 64, tag = 40, n = 120, rd = 64 }
 
 function Store.Sanitize(ds, rec)
   if type(rec) ~= "table" then return nil end

@@ -106,6 +106,9 @@ function Profile:Scan(reason)
   local rec = self:Read()
   local mine = Util.Copy(rec)
   mine.seen = Util.Now()
+  -- Les recettes déjà lues restent : une relecture de la fiche n'y touche pas.
+  local old = DR.db.myChars[DR.playerName]
+  if old and old.recipes then mine.recipes = old.recipes end
   DR.db.myChars[DR.playerName] = mine
   if IsInGuild() and Store:IsReady() then
     Store:Put("chars", rec)
@@ -123,6 +126,51 @@ function Profile:OnLogin()
   DR:Listen("PLAYER_RENAMED", function(old) self:Forget(old); self.ScanSoon() end)
   DR:Listen("ROSTER_UPDATED", function() self:ForgetShortNames() end)
   DR.After(5, function() self:Scan("connexion") end)
+  DR.After(20, function() self:AnnounceToOpen() end)
+end
+
+---------------------------------------------------------------------------
+-- Métiers à lire : le jeu ne laisse pas l'add-on ouvrir la fenêtre d'un métier
+-- à la place du joueur, donc chaque métier se lit quand le joueur l'ouvre.
+---------------------------------------------------------------------------
+-- Cueillette sans fenêtre de recettes : rien à ouvrir.
+local NO_WINDOW = { [182] = true, [393] = true, [794] = true }
+
+-- Les métiers d'un perso de mon compte : lu ou à ouvrir, et depuis quand.
+function Profile:ProfessionStates(name)
+  local c = DR.db.myChars[name or DR.playerName]
+  local out = {}
+  if not c then return out end
+  for _, p in ipairs(c.p or {}) do
+    local rec = c.recipes and c.recipes[tostring(p.id)]
+    out[#out + 1] = {
+      id = p.id, name = p.nm, lv = p.lv, mx = p.mx,
+      needs = not NO_WINDOW[p.id], read = rec ~= nil, n = rec and rec.n, at = rec and rec.at,
+    }
+  end
+  return out
+end
+
+-- Noms des métiers qu'il reste à ouvrir.
+function Profile:ToOpen(name)
+  local out = {}
+  for _, s in ipairs(self:ProfessionStates(name)) do
+    if s.needs and not s.read then out[#out + 1] = s.name end
+  end
+  return out
+end
+
+-- Une seule ligne dans la discussion, une fois par connexion.
+function Profile:AnnounceToOpen()
+  if self.announced or not IsInGuild() then return end
+  self.announced = true
+  local list = self:ToOpen()
+  if #list == 0 then return end
+  local total = 0
+  for _, s in ipairs(self:ProfessionStates()) do if s.needs then total = total + 1 end end
+  local msg = string.format("il te reste %d métier%s à ouvrir : %s.", #list, #list > 1 and "s" or "", table.concat(list, ", "))
+  if #list < total then msg = msg .. " Les autres sont déjà partagés." end
+  DR:Print(msg)
 end
 
 -- Retire un perso enregistré sous un nom incomplet (le prénom seul, lu avant

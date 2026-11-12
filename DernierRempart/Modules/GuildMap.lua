@@ -7,11 +7,14 @@
 -- joueur a coupé le partage.
 --
 -- Format (préfixe DRemP) : "P:<carte>:<x*10000>:<y*10000>", "H" (caché), "W".
+-- "H" peut dire pourquoi : "H:i" (en instance), "H:s" (partage coupé par le
+-- joueur), "H:n" (pas de carte ici). Les anciennes versions envoient "H" seul.
 
 local _, DR = ...
 local Map = DR:NewModule("GuildMap")
 
 Map.positions = {}   -- nom complet -> { m, x, y, t }
+Map.hidden = {}      -- nom complet -> { why = "i" | "s" | "n" | "", t }
 local STALE = 120
 local CHECK_EVERY = 5
 local HEARTBEAT = 40
@@ -28,10 +31,13 @@ function Map:OnLogin()
     for name in pairs(self.positions) do
       if not DR.Guild:IsOnline(name) then self.positions[name] = nil end
     end
+    for name in pairs(self.hidden) do
+      if not DR.Guild:IsOnline(name) then self.hidden[name] = nil end
+    end
   end)
   DR:Listen("SETTINGS_CHANGED", function(what)
     if what == "sharePosition" and not DR.db.settings.sharePosition then
-      DR.Comm:SendPosition("H")
+      DR.Comm:SendPosition("H:s")
       self.last = { hidden = true, t = GetTime() }
     end
   end)
@@ -64,7 +70,7 @@ function Map:Tick()
   local L = self.last
   if not m then
     if L and not L.hidden then
-      DR.Comm:SendPosition("H")
+      DR.Comm:SendPosition(IsInInstance and IsInInstance() and "H:i" or "H:n")
       self.last = { hidden = true, t = now }
     end
     return
@@ -91,15 +97,39 @@ function Map:OnPosition(sender, text)
     self.force = true
     return
   end
-  if text == "H" then
+  local why = text:match("^H:?(%a?)$")
+  if why then
     self.positions[sender] = nil
+    self.hidden[sender] = { why = why, t = GetTime() }
     DR:Emit("POSITIONS_CHANGED")
     return
   end
   local m, x, y = Map.Parse(text)
   if not m then return end
   self.positions[sender] = { m = m, x = x, y = y, t = GetTime() }
+  self.hidden[sender] = nil
   DR:Emit("POSITIONS_CHANGED")
+end
+
+-- Pourquoi je ne vois pas ce membre sur la carte ? Rend un code court :
+--   "pos" (il partage), "instance", "coupe" (partage coupé), "cache" (caché,
+--   sans raison), "aucune" (l'add-on n'a rien dit), "sans" (pas d'add-on).
+function Map:Reason(name)
+  name = DR.Util.FullName(name)
+  if not name then return "sans" end
+  if DR.Util.SameName(name, DR.playerName) then
+    if not DR.db.settings.sharePosition then return "coupe" end
+    return self:MyPosition() and "pos" or (IsInInstance and IsInInstance() and "instance" or "aucune")
+  end
+  if self.positions[name] then return "pos" end
+  local h = self.hidden[name]
+  if h then
+    if h.why == "i" then return "instance" end
+    if h.why == "s" then return "coupe" end
+    return "cache"
+  end
+  if DR.Guild:HasAddon(name) then return "aucune" end
+  return "sans"
 end
 
 -- L'interface signale qu'elle montre une carte (clé : "monde", "onglet").

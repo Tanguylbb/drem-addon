@@ -67,6 +67,56 @@ capture) ou « bizarre ».
       va changer s'affiche. « Importer » : les sorties du site arrivent chez M.
 - [ ] Le point en haut de la fenêtre passe au vert : « Données du site : il y a … ».
 
+## 6. Version 0.3 : ce qui ne se teste que dans le vrai jeu
+
+**Banque de guilde et effort de guerre** (la lecture du journal est la partie la
+moins sûre : le jeu peut la refuser ou la limiter sur Forever)
+
+- [ ] Banque ouverte, taper `/rempart banque` : « Fonctions du journal :
+      présentes », un nombre de lignes pour le journal d'or et pour chaque
+      onglet. Noter ce qui est dit si c'est « absentes » ou « illisible ».
+- [ ] Même chose avec un membre simple, puis avec un officier : les rangs
+      voient-ils tous les onglets et le journal d'or ? Noter qui voit quoi.
+- [ ] O crée un objectif en or (« Nouvel objectif »). M dépose 1 po dans la
+      banque, ferme la banque. Chez M : message « banque de guilde lue ». Chez
+      O : l'objectif a avancé et le dépôt est listé à droite (l'heure n'est
+      donnée qu'à l'heure près).
+- [ ] O ouvre la banque à son tour : le total ne bouge pas (pas de doublon).
+- [ ] Un retrait et une réparation ne sont **pas** comptés.
+- [ ] Un objectif en objets (Maj+clic sur l'objet) : déposer l'objet dans la
+      banque le fait avancer.
+- [ ] Deux objectifs en or ouverts en même temps : le dépôt est « à classer » ;
+      O choisit l'objectif avec « Classer ».
+- [ ] Réglage « Qui voit les noms et les montants » sur Officiers : M ne voit
+      plus que les totaux.
+- [ ] Le journal garde combien de lignes ? (noter le nombre vu après plusieurs
+      dépôts : la lecture ne peut pas remonter plus loin.)
+
+**Artisans et recettes**
+
+- [ ] Ouvrir un métier avec des recettes non apprises : l'onglet Artisans range
+      les recettes par type de craft (Sacs, Robes…). Noter si les types ont les
+      mêmes noms que dans la fenêtre du jeu.
+- [ ] « Personne ne l'a » liste les recettes inconnues ; « +1 » sur l'une d'elles :
+      l'autre testeur voit le compteur monter, et la recette apparaît dans
+      « Recettes recherchées ».
+- [ ] « Où la trouver » : saisir un texte, il arrive chez l'autre testeur.
+- [ ] Mes persos : un métier jamais ouvert est « À ouvrir » ; l'ouvrir le passe à
+      « Lu ». Le chat dit une seule ligne à la connexion.
+
+**Carte, sorties, synchro**
+
+- [ ] Carte : les trois chiffres et la raison de chaque membre en ligne (sur la
+      carte, autre zone, en donjon, position coupée, pas d'add-on).
+- [ ] Sorties : la ligne du haut passe à « À jour : dernière réponse de … » ;
+      « Redemander à la guilde » fait arriver une sortie manquante sans commande.
+- [ ] Sorties : « Qui l'a vue » donne des nombres plausibles.
+
+**Relais automatique** (seulement quand le programme existera)
+
+- [ ] Onglet Pont : « Pas de relais détecté » sans le mini add-on de données ;
+      avec lui, l'état passe à « Relais connecté ».
+
 ## À remonter
 
 - Le résultat de `/rempart rapport` en fin de test (capture d'écran).
