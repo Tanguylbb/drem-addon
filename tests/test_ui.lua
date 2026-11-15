@@ -58,10 +58,15 @@ return function(H)
     A.tradeskill = { id = 171, name = "Alchimie", all = { 3451, 17556 }, learned = { [3451] = true } }
     A:Fire("TRADE_SKILL_SHOW")
     net:Advance(5)
-    for _, key in ipairs({ "artisans", "carte", "effort", "banque", "persos", "pont", "sorties" }) do
+    for _, key in ipairs({ "artisans", "carte", "effort", "officiers", "sorties" }) do
       A:Slash(key)
       H.eq(UI.current, key)
     end
+    -- Les anciens noms mènent au bon endroit.
+    A:Slash("pont"); H.eq(UI.current, "officiers")
+    A:Slash("banque"); H.eq(UI.current, "effort"); H.eq(UI.tabs.effort.view, "journal")
+    A:Slash("persos"); H.eq(UI.current, "artisans")
+    A:Slash("sorties")
     net:Advance(3)
     H.eq(#errors(A), 0, table.concat(errors(A), "\n"))
   end)
@@ -70,20 +75,20 @@ return function(H)
     B:Slash("artisans")
     local tab = B.DR.UI.tabs.artisans
     tab.search:SetText("soins")
-    tab:RefreshQui()
-    H.eq(#tab.quiEntries, 1)
-    tab.selectedRecipe = tab.quiEntries[1].id
-    tab:RefreshQui()
+    tab:RefreshRecipes()
+    H.eq(#tab.entries, 1)
+    tab.selectedRecipe = tab.entries[1].id
+    tab:RefreshRecipes()
     H.eq(tab.selectedCrafter, "Shenryu-Rempart")
-    tab.quiDetail.ask:Click()
+    tab.fiche.ask:Click()
     net:Advance(5)
     H.eq(#A.DR.Crafts:Orders("craft", "forme"), 1)
-    tab.chips:Select("recherches", true)
+    tab:SetView("buy")
     tab.wishInput:SetText("Flacon des Titans")
     tab:AddWish()
     net:Advance(5)
     H.eq(#A.DR.Crafts:Orders("recette", "all"), 1)
-    tab.chips:Select("commandes", true)
+    tab:SetView("orders")
     H.eq(#errors(B), 0, table.concat(errors(B), "\n"))
   end)
 
@@ -94,7 +99,7 @@ return function(H)
 
   H.test("Pont : générer puis importer un code", function()
     A:Slash("pont")
-    local tab = UI.tabs.pont
+    local tab = UI.tabs.officiers
     tab:Generate()
     local code = tab.outBox:GetText()
     H.ok(code:sub(1, 4) == "DR2:", "code affiché")

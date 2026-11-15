@@ -1,5 +1,7 @@
--- Onglet Sorties : la liste des sorties à gauche, le détail à droite avec
--- l'inscription en un clic, comme la page « Les sorties » du site.
+-- Onglet Sorties : la liste à gauche, la fiche marine à droite. La réponse vient
+-- d'abord (« Présent » est le bouton rouge) ; « Qui l'a vue » et « Relancer »
+-- ne s'affichent que pour les officiers. Une bande ambre n'apparaît que si la
+-- synchro prend du retard.
 
 local _, DR = ...
 local UI, T, W, Util = DR.UI, DR.Theme, DR.Widgets, DR.Util
@@ -8,100 +10,110 @@ local Cal = DR.Calendar
 
 local Tab = {}
 UI:RegisterTab("sorties", "Sorties", Tab)
+Tab.icon = "tab_sorties"
+Tab.tip = "Les raids, donjons et soirées de la guilde, et ta réponse."
 
-local LIST_W = 316
+local LIST_W = 300
+local ROW_H = 54
+local TOP = 30 -- la pastille de compte, au-dessus des deux colonnes
 local GROUP_LABEL = { yes = "Présents", maybe = "Peut-être", bench = "Remplaçants", no = "Absents" }
 local NEED_LABEL = { T = "Tanks voulus", H = "Soins voulus", D = "DPS voulus" }
-local ROW_H = 62
-local TOP = 38 -- la ligne d'état de la synchro, au-dessus des pastilles
-
-local function kindColor(k)
-  local def = Cal.KINDS[k or "raid"] or Cal.KINDS.autre
-  return { Util.Hex(def.color) }
-end
+local BAR_LABEL = { T = "Tanks", H = "Soins", D = "DPS" }
 
 local function statusColor(s)
   local def = Cal.STATUSES[s]
   return def and { Util.Hex(def.color) } or C.muted
 end
 
-
----------------------------------------------------------------------------
--- Ligne de sortie (liste de gauche)
----------------------------------------------------------------------------
-local function createRow(row)
-  row.bg = T.Fill(row, C.panel)
-  row.border = T.Border(row, C.line)
-  row.accent = row:CreateTexture(nil, "ARTWORK")
-  row.accent:SetPoint("TOPLEFT"); row.accent:SetPoint("BOTTOMLEFT")
-  row.accent:SetWidth(3)
-
-  local date = CreateFrame("Frame", nil, row)
-  date:SetSize(50, ROW_H - 12)
-  date:SetPoint("LEFT", 10, 0)
-  T.Fill(date, C.sunk)
-  T.Border(date, C.line)
-  row.day = T.Text(date, "caps", 10, C.muted)
-  row.day:SetPoint("TOP", 0, -5)
-  row.num = T.Text(date, "title", 21, C.goldText)
-  row.num:SetPoint("CENTER", 0, -1)
-  row.month = T.Text(date, "body", 9, C.muted)
-  row.month:SetPoint("BOTTOM", 0, 4)
-
-  row.kind = T.Text(row, "caps", 11)
-  row.kind:SetPoint("TOPLEFT", date, "TOPRIGHT", 10, -1)
-  row.mine = T.Text(row, "semi", 11)
-  row.mine:SetPoint("TOPRIGHT", -10, -7)
-  row.mine:SetJustifyH("RIGHT")
-  row.title = T.Text(row, "title", 15, C.ivory)
-  row.title:SetPoint("LEFT", date, "RIGHT", 10, 1)
-  row.title:SetPoint("RIGHT", -10, 0)
-  row.counts = T.Text(row, "body", 11, C.brume)
-  row.counts:SetPoint("BOTTOMLEFT", date, "BOTTOMRIGHT", 10, 1)
-  row.counts:SetPoint("RIGHT", -10, 0)
+local function dark(c, k)
+  return { c[1] * k, c[2] * k, c[3] * k }
 end
 
-local function roleCount(role, have, need)
-  local c = (need > 0 and have >= need) and C.teal or (need > 0 and C.amber or C.brume)
-  local txt = T.RoleIcon(role, 11, c) .. " " .. T.Hex(c) .. have .. "|r"
-  if need > 0 then txt = txt .. T.Hex(C.muted) .. "/" .. need .. "|r" end
-  return txt
+---------------------------------------------------------------------------
+-- Ligne de sortie (liste de gauche) : icône à gauche, boîte noire à droite
+---------------------------------------------------------------------------
+local function framedIcon(parent, size)
+  return W.IconFrame(parent, size)
+end
+
+local function createRow(row)
+  row.iconBox = framedIcon(row, 42)
+  row.iconBox:SetPoint("LEFT", 2, 0)
+  row.box = CreateFrame("Frame", nil, row)
+  row.box:SetPoint("TOPLEFT", row.iconBox, "TOPRIGHT", 5, 2)
+  row.box:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -1, 2)
+  row.box.bg = row.box:CreateTexture(nil, "BACKGROUND")
+  row.box.bg:SetAllPoints()
+  T.Gradient(row.box.bg, { 0.055, 0.055, 0.055 }, { 0.03, 0.03, 0.03 })
+  T.Border(row.box, { 0.137, 0.125, 0.098 }, 1)
+  row.title = T.Text(row.box, "body", 13, C.goldText)
+  row.title:SetPoint("TOPLEFT", 9, -8)
+  row.title:SetPoint("RIGHT", -34, 0)
+  row.sub = T.Text(row.box, "body", 11, C.muted)
+  row.sub:SetPoint("TOPLEFT", row.title, "BOTTOMLEFT", 0, -3)
+  row.sub:SetPoint("RIGHT", -34, 0)
+  -- L'état de ma réponse : un rond de couleur avec un signe.
+  row.stat = CreateFrame("Frame", nil, row.box)
+  row.stat:SetSize(22, 22)
+  row.stat:SetPoint("RIGHT", -7, 0)
+  row.stat.dot = row.stat:CreateTexture(nil, "ARTWORK")
+  row.stat.dot:SetAllPoints()
+  row.stat.dot:SetTexture(T.Icon("dot"))
+  row.stat.ring = row.stat:CreateTexture(nil, "OVERLAY")
+  row.stat.ring:SetAllPoints()
+  row.stat.ring:SetTexture(T.Icon("ring"))
+  row.stat.check = row.stat:CreateTexture(nil, "OVERLAY", nil, 2)
+  row.stat.check:SetSize(18, 18)
+  row.stat.check:SetPoint("CENTER", 0, 0)
+  row.stat.check:SetTexture(T.Icon("coche"))
+  row.stat.glyph = T.Text(row.stat, "bold", 12, C.amber, "OVERLAY")
+  row.stat.glyph:SetPoint("CENTER", 0, 0)
+  row.stat.glyph:SetJustifyH("CENTER")
+  row.stat.glyph:SetShadowColor(0, 0, 0, 0)
+end
+
+local function setStat(stat, glyph, c)
+  local d = dark(c, 0.3)
+  stat.dot:SetVertexColor(d[1], d[2], d[3])
+  stat.ring:SetVertexColor(c[1], c[2], c[3])
+  if glyph == "check" then
+    stat.check:SetVertexColor(c[1], c[2], c[3])
+    stat.check:Show(); stat.glyph:SetText("")
+  else
+    stat.check:Hide(); stat.glyph:SetText(glyph)
+    T.Color(stat.glyph, c)
+  end
 end
 
 local function updateRow(row, ev)
   local p = Util.DateParts(ev.d)
-  local kc = kindColor(ev.k)
-  row.accent:SetColorTexture(kc[1], kc[2], kc[3], 1)
-  row.day:SetText((p.jour:upper():gsub("%.", "")))
-  row.num:SetText(p.num)
-  row.month:SetText(p.mois)
-  row.kind:SetText(T.Hex(kc) .. (Cal.KINDS[ev.k] or Cal.KINDS.autre).label:upper() .. "|r  "
-    .. T.Hex(C.brume) .. p.heure .. "|r")
+  local kind = Cal.KINDS[ev.k or "raid"] or Cal.KINDS.autre
+  row.iconBox.icon:SetTexture(T.KIND_ICON[ev.k or "raid"] or T.KIND_ICON.autre)
   local cancelled = ev.st == "cancelled"
-  row.title:SetText(cancelled and (T.Hex(C.muted) .. ev.t .. "|r") or ev.t)
-  local counts = Cal:Counts(ev.id)
-  local cap = ev.cap and ("/" .. ev.cap) or ""
-  row.counts:SetText(T.Hex(C.ivory) .. counts.yes .. "|r" .. T.Hex(C.muted) .. cap .. "|r   "
-    .. roleCount("T", counts.T, ev.nt or 0) .. "  " .. roleCount("H", counts.H, ev.nh or 0) .. "  "
-    .. roleCount("D", counts.D, ev.nd or 0))
+  row.title:SetText(ev.t)
+  T.Color(row.title, cancelled and C.muted or C.goldText)
+  row.sub:SetText(kind.label .. " · " .. p.jour .. " " .. p.num .. " " .. p.mois .. " · " .. p.heure)
   local mine = Cal:MySignup(ev.id)
   if cancelled then
-    row.mine:SetText(T.Hex(C.red) .. "Annulée|r")
+    setStat(row.stat, "x", C.red)
   elseif mine then
     local sc = statusColor(mine.s)
-    row.mine:SetText(T.Hex(sc) .. Cal.STATUSES[mine.s].label .. "|r")
+    if mine.s == "yes" then setStat(row.stat, "check", C.green)
+    elseif mine.s == "maybe" then setStat(row.stat, "?", sc)
+    elseif mine.s == "bench" then setStat(row.stat, "R", sc)
+    else setStat(row.stat, "-", C.red) end
   elseif not Cal:IsOpen(ev) then
-    row.mine:SetText(T.Hex(C.amber) .. "Fermé|r")
+    setStat(row.stat, "-", C.muted)
   else
-    row.mine:SetText(T.Hex(C.amber) .. "Tu viens ?|r")
+    setStat(row.stat, "!", C.amber)
   end
   local selected = Tab.selected == ev.id
   if selected then
-    row.bg:SetColorTexture(0.09, 0.125, 0.25, 1)
-    T.Border(row, C.gold, 0.8)
+    T.Border(row.box, C.gold, 1, 2)
+    row.iconBox:SetSelected(true)
   else
-    row.bg:SetColorTexture(C.panel[1], C.panel[2], C.panel[3], 1)
-    T.Border(row, C.line)
+    T.Border(row.box, { 0.137, 0.125, 0.098 }, 1, 1)
+    row.iconBox:SetSelected(false)
   end
   row:SetAlpha(cancelled and 0.6 or 1)
 end
@@ -112,6 +124,19 @@ end
 function Tab:Create(f, width, height)
   self.f, self.width, self.height = f, width, height
   self.view = "upcoming"
+  self.search = ""
+
+  self.pill = W.Pill(f)
+  self.pill:SetPoint("TOP", 0, 0)
+
+  -- Colonne de gauche : recherche, À venir / Passées, liste, nouvelle sortie.
+  local searchBox = W.Search(f, LIST_W, "Recherche", 40)
+  searchBox:SetPoint("TOPLEFT", 0, -TOP)
+  searchBox:HookScript("OnTextChanged", function(e)
+    self.search = Util.Fold(e:GetText() or "")
+    self:Refresh()
+  end)
+  self.searchBox = searchBox
 
   self.chips = W.Chips(f, {
     { key = "upcoming", label = "À venir" },
@@ -120,90 +145,79 @@ function Tab:Create(f, width, height)
     self.view = key
     if user then self.selected = nil; self:Refresh() end
   end)
-  self.chips:SetPoint("TOPLEFT", 0, -2 - TOP)
+  self.chips:SetPoint("TOPLEFT", 0, -TOP - 30)
   self.chips:Select("upcoming")
 
-  -- Où en est la synchro : une phrase, et de quoi la redemander d'un clic.
-  local strip = CreateFrame("Frame", nil, f)
-  strip:SetPoint("TOPLEFT", 0, 0)
-  strip:SetSize(width, 32)
-  T.Fill(strip, C.sunk)
-  T.Border(strip, C.line)
-  self.syncDot = W.Dot(strip, 8)
-  self.syncDot:SetPoint("LEFT", 12, 0)
-  self.syncText = T.Text(strip, "body", 12, C.brume)
-  self.syncText:SetPoint("LEFT", self.syncDot, "RIGHT", 8, 0)
-  self.syncText:SetPoint("RIGHT", -200, 0)
-  self.syncBtn = W.Button(strip, "Redemander à la guilde", "ghost", 184, 22)
+  local listH = height - TOP - 60 - 34
+  self.listBox, self.list = W.BlackList(f, {
+    width = LIST_W, height = listH, rowHeight = ROW_H,
+    create = createRow,
+    update = updateRow,
+    click = function(ev) self.selected = ev.id; self:Refresh() end,
+  })
+  self.listBox:SetPoint("TOPLEFT", 0, -TOP - 60)
+
+  -- La bande ambre : seulement si la synchro prend du retard.
+  local strip = CreateFrame("Frame", nil, self.listBox)
+  strip:SetPoint("BOTTOMLEFT", 6, 6)
+  strip:SetPoint("BOTTOMRIGHT", -6, 6)
+  strip:SetHeight(44)
+  strip:SetFrameLevel(self.listBox:GetFrameLevel() + 10)
+  T.Fill(strip, { 0.29, 0.12, 0.05 })
+  T.Border(strip, { 0.48, 0.17, 0.1 })
+  self.syncText = T.Para(strip, "body", 11, { 0.96, 0.79, 0.54 }, LIST_W - 130)
+  self.syncText:SetPoint("LEFT", 8, 0)
+  self.syncBtn = W.Button(strip, "Redemander", "sec", 90, 24)
   self.syncBtn:SetPoint("RIGHT", -6, 0)
   self.syncBtn:SetScript("OnClick", function()
     DR.Sync:Request("manuel")
     UI:Toast("Demande envoyée à la guilde. Les réponses arrivent en quelques secondes.", "ok")
-    self:RefreshSync()
+    self:Refresh()
   end)
   W.Tip(self.syncBtn, "Redemander à la guilde",
     "Demande aux membres en ligne qui ont l'add-on de t'envoyer ce que tu n'as pas (sorties, inscriptions, recettes). Aucune commande à taper.")
+  strip:Hide()
+  self.strip = strip
 
-  self.alert = T.Text(f, "semi", 12, C.amber)
-  self.alert:SetPoint("LEFT", self.chips, "LEFT", 210, 0)
-
-  self.newBtn = W.Button(f, "Nouvelle sortie", "gold", 150, 30)
-  self.newBtn:SetPoint("TOPRIGHT", 0, -TOP)
+  self.newBtn = W.Button(f, "+ Nouvelle sortie  |cff9A9180(officiers)|r", "sec", LIST_W, 26)
+  self.newBtn:SetPoint("BOTTOMLEFT", 0, 0)
   self.newBtn:SetScript("OnClick", function() self:OpenForm(nil) end)
 
-  local listH = height - 42 - TOP
-  self.list = W.List(f, {
-    width = LIST_W, height = listH, rowHeight = ROW_H + 6,
-    create = function(row)
-      local inner = CreateFrame("Frame", nil, row)
-      inner:SetPoint("TOPLEFT", 0, 0)
-      inner:SetPoint("BOTTOMRIGHT", 0, 6)
-      createRow(inner)
-      row.inner = inner
-    end,
-    update = function(row, ev) updateRow(row.inner, ev) end,
-    click = function(ev) self.selected = ev.id; self:Refresh() end,
-  })
-  self.list:SetPoint("TOPLEFT", 0, -42 - TOP)
-
-  local dw = width - LIST_W - 14
-  self.detail = T.Card(f)
-  self.detail:SetPoint("TOPLEFT", LIST_W + 14, -42 - TOP)
-  self.detail:SetSize(dw, listH)
-  self:BuildDetail(self.detail, dw, listH)
-  self:BuildForm(f, dw, listH)
+  -- La fiche, à droite.
+  local dw, dh = width - LIST_W - 10, height - TOP
+  self.detail = W.Navy(f)
+  self.detail:SetPoint("TOPLEFT", LIST_W + 10, -TOP)
+  self.detail:SetSize(dw, dh)
+  self:BuildDetail(self.detail, dw, dh)
+  self:BuildForm(f, dw, dh)
 end
 
 function Tab:BuildDetail(d, w, h)
   local pad = 16
-  d.empty = T.Para(d, "body", 13, C.brume, w - 2 * pad)
+  local inner = w - 2 * pad
+  d.empty = T.Para(d, "body", 13, C.brume, inner)
   d.empty:SetPoint("TOPLEFT", pad, -pad)
 
   local body = CreateFrame("Frame", nil, d)
   body:SetAllPoints(d)
   d.body = body
 
-  d.kind = T.Text(body, "caps", 12)
-  d.kind:SetPoint("TOPLEFT", pad, -pad)
+  d.iconBox = framedIcon(body, 42)
+  d.iconBox:SetPoint("TOPLEFT", pad, -14)
+  d.title = T.Text(body, "title", 19, { 1, 1, 1 })
+  d.title:SetPoint("TOPLEFT", d.iconBox, "TOPRIGHT", 11, -1)
+  d.title:SetPoint("RIGHT", -pad - 170, 0)
+  d.sub = T.Text(body, "body", 11, C.muted)
+  d.sub:SetPoint("TOPLEFT", d.title, "BOTTOMLEFT", 0, -5)
+  d.sub:SetPoint("RIGHT", -pad - 8, 0)
   d.badge = W.Badge(body)
-  d.badge:SetPoint("LEFT", d.kind, "RIGHT", 10, 0)
-  d.when = T.Text(body, "body", 12, C.brume)
-  d.when:SetPoint("LEFT", d.badge, "RIGHT", 10, 0)
-
-  d.title = T.Text(body, "title", 26, C.ivory)
-  d.title:SetPoint("TOPLEFT", d.kind, "BOTTOMLEFT", 0, -8)
-  d.title:SetPoint("RIGHT", -pad, 0)
-  d.date = T.Text(body, "body", 13, C.brume)
-  d.date:SetPoint("TOPLEFT", d.title, "BOTTOMLEFT", 0, -6)
-  d.info = T.Para(body, "body", 12, C.ivory, w - 2 * pad)
-  d.info:SetPoint("TOPLEFT", d.date, "BOTTOMLEFT", 0, -6)
-  d.info:SetMaxLines(3)
+  d.badge:SetPoint("TOPLEFT", d.iconBox, "BOTTOMLEFT", 0, -6)
 
   -- Actions des officiers.
-  d.editBtn = W.Button(body, "Modifier", "ghost", 84, 24)
-  d.editBtn:SetPoint("TOPRIGHT", -pad, -pad + 4)
+  d.editBtn = W.Button(body, "Modifier", "sec", 76, 22)
+  d.editBtn:SetPoint("TOPRIGHT", -pad, -14)
   d.editBtn:SetScript("OnClick", function() self:OpenForm(Cal:Get(self.selected)) end)
-  d.lockBtn = W.Button(body, "Fermer", "ghost", 84, 24)
+  d.lockBtn = W.Button(body, "Fermer", "sec", 76, 22)
   d.lockBtn:SetPoint("RIGHT", d.editBtn, "LEFT", -6, 0)
   d.lockBtn:SetScript("OnClick", function()
     local ev = Cal:Get(self.selected)
@@ -213,56 +227,63 @@ function Tab:BuildDetail(d, w, h)
   end)
   W.Tip(d.lockBtn, "Fermer ou rouvrir les inscriptions")
 
-  -- Besoins par rôle.
+  -- Besoins par rôle : trois barres, comme celles des métiers.
+  local bw = math.floor((inner - 16) / 3)
   d.needs = {}
-  local prev
   for i, role in ipairs(Util.ROLES) do
-    local n = W.RoleNeed(body)
-    if i == 1 then n:SetPoint("TOPLEFT", d.info, "BOTTOMLEFT", 0, -12)
-    else n:SetPoint("LEFT", prev, "RIGHT", 8, 0) end
-    d.needs[role] = n
-    prev = n
+    local bar = W.Bar(body, bw, 18)
+    bar:SetPoint("TOPLEFT", pad + (i - 1) * (bw + 8), -86)
+    d.needs[role] = bar
   end
   d.missing = T.Text(body, "semi", 12, C.amber)
-  d.missing:SetPoint("LEFT", prev, "RIGHT", 12, 0)
+  d.missing:SetPoint("TOPLEFT", pad, -110)
 
-  -- Qui l'a vue : ceux qui ont répondu, ceux qui ne l'ont pas fait, ceux qui
-  -- n'ont pas l'add-on (à relancer sur Discord).
-  local seen = CreateFrame("Frame", nil, body)
-  seen:SetPoint("TOPLEFT", d.needs.T, "BOTTOMLEFT", 0, -10)
-  seen:SetPoint("RIGHT", -pad, 0)
-  seen:SetHeight(26)
-  T.Fill(seen, C.sunk)
-  T.Border(seen, C.line)
-  d.seenLabel = T.Text(seen, "caps", 10, C.muted)
-  d.seenLabel:SetPoint("LEFT", 10, 0)
-  d.seenLabel:SetText("QUI L'A VUE")
-  d.seenText = T.Text(seen, "body", 12, C.brume)
-  d.seenText:SetPoint("LEFT", 92, 0)
-  d.seenText:SetPoint("RIGHT", -8, 0)
-  W.Tip(seen, "Qui a vu la sortie",
-    "Les membres qui ont l'add-on et ont répondu, ceux qui ne l'ont pas fait, et ceux qui n'ont pas l'add-on : à ceux-là, il faut écrire sur Discord.",
-    "Chiffres approximatifs : un joueur qui a plusieurs persos sans add-on peut compter plusieurs fois.")
-  seen:EnableMouse(true)
-  d.seen = seen
+  d.info = T.Para(body, "body", 12, C.ivory, inner)
+  d.info:SetPoint("TOPLEFT", pad, -132)
+  d.info:SetMaxLines(3)
 
   -- Ma réponse.
-  local box = CreateFrame("Frame", nil, body)
-  box:SetPoint("TOPLEFT", seen, "BOTTOMLEFT", 0, -10)
-  box:SetPoint("RIGHT", -pad, 0)
-  box:SetHeight(82)
-  T.Fill(box, C.sunk)
-  T.Border(box, C.gold, 0.35)
-  d.box = box
+  local y = -178
+  d.ansHeader = W.Header(body, inner)
+  d.ansHeader:SetPoint("TOPLEFT", pad, y)
+  d.ansHeader:SetLabel("Ma réponse")
+  d.ansHeader.onToggle = nil
+  d.answers = {}
+  local x = pad
+  local aw = math.floor((inner - 18) / 4)
+  for _, s in ipairs(Cal.STATUS_ORDER) do
+    local b = W.Button(body, Cal.STATUSES[s].label, "toggle", aw, 26)
+    b:SetPoint("TOPLEFT", x, y - 32)
+    b:SetScript("OnClick", function() self:Answer(s) end)
+    d.answers[s] = b
+    x = x + aw + 6
+  end
 
-  d.charBtn = W.Button(box, "Perso", "ghost", 190, 26)
-  d.charBtn:SetPoint("TOPLEFT", 10, -10)
+  -- « Tu viens avec Perso, en soins · Modifier » : ou, une fois « Modifier »
+  -- cliqué, le perso, le rôle et le petit mot.
+  d.line = T.Text(body, "body", 12, C.brume)
+  d.line:SetPoint("TOPLEFT", pad, y - 68)
+  d.line:SetPoint("RIGHT", -pad - 84, 0)
+  d.change = W.Button(body, "Modifier", "ghost", 70, 20)
+  d.change:SetPoint("TOPRIGHT", -pad, y - 65)
+  d.change:SetScript("OnClick", function()
+    self.editing = not self.editing
+    self:RefreshAnswer()
+  end)
+  d.state = T.Text(body, "body", 11, C.muted)
+  d.state:SetPoint("TOPLEFT", pad, y - 86)
+  d.state:SetPoint("RIGHT", -pad, 0)
+
+  d.edit = CreateFrame("Frame", nil, body)
+  d.edit:SetPoint("TOPLEFT", pad, y - 62)
+  d.edit:SetSize(inner - 84, 26)
+  d.charBtn = W.Button(d.edit, "Perso", "sec", 200, 24)
+  d.charBtn:SetPoint("LEFT", 0, 0)
   d.charBtn:SetScript("OnClick", function(btn) self:OpenCharMenu(btn) end)
-
   d.roleBtns = {}
   local last = d.charBtn
   for _, role in ipairs(Util.ROLES) do
-    local b = W.Button(box, "", "toggle", 34, 26)
+    local b = W.Button(d.edit, "", "toggle", 34, 24)
     b.icon = b:CreateTexture(nil, "OVERLAY")
     b.icon:SetSize(14, 14)
     b.icon:SetPoint("CENTER")
@@ -276,44 +297,55 @@ function Tab:BuildDetail(d, w, h)
     d.roleBtns[role] = b
     last = b
   end
-
-  d.note = W.Edit(box, 100, 26, "Petit mot facultatif (60 caractères)", 60)
+  d.note = W.Edit(d.edit, 100, 24, "Petit mot (60 caractères)", 60)
   d.note:SetPoint("LEFT", last, "RIGHT", 8, 0)
-  d.note:SetPoint("RIGHT", box, "RIGHT", -10, 0)
+  d.note:SetPoint("RIGHT", d.edit, "RIGHT", 0, 0)
   d.note:SetScript("OnEnterPressed", function(e)
     e:ClearFocus()
     local mine = Cal:MySignup(self.selected)
     if mine then self:Answer(mine.s) end
   end)
-
-  d.answers = {}
-  local x = 10
-  local bw = math.floor((w - 2 * pad - 20 - 18) / 4)
-  for _, s in ipairs(Cal.STATUS_ORDER) do
-    local b = W.Button(box, Cal.STATUSES[s].label, "toggle", bw, 30)
-    b:SetPoint("BOTTOMLEFT", x, 10)
-    b:SetScript("OnClick", function() self:Answer(s) end)
-    d.answers[s] = b
-    x = x + bw + 6
-  end
-
-  d.state = T.Text(body, "body", 11, C.muted)
-  d.state:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 2, -6)
-  d.state:SetPoint("RIGHT", -pad, 0)
+  d.edit:Hide()
 
   -- Inscrits.
-  local listTop = 16 + 20 + 34 + 22 + 40 + 36 + 12 + 82 + 26 + 36
-  d.signups = W.List(body, {
-    width = w - 2 * pad, height = math.max(60, h - listTop - pad), rowHeight = 19,
+  local sy = y - 108
+  d.signHeader = W.Header(body, inner)
+  d.signHeader:SetPoint("TOPLEFT", pad, sy)
+  d.signHeader:SetLabel("Inscrits", 0)
+  local listH = math.max(60, h + sy - 28 - 12 - 46 - 8)
+  d.signBox, d.signups = W.BlackList(body, {
+    width = inner, height = listH, rowHeight = 19,
     create = function(row)
       row.text = T.Text(row, "body", 12)
-      row.text:SetPoint("LEFT", 2, 0)
+      row.text:SetPoint("LEFT", 8, 0)
       row.text:SetPoint("RIGHT", -2, 0)
     end,
     update = function(row, item) row.text:SetText(item.text) end,
   })
-  d.signups:SetPoint("TOPLEFT", d.state, "BOTTOMLEFT", -2, -6)
+  d.signBox:SetPoint("TOPLEFT", pad, sy - 28)
   d.signups:SetEmptyText("Personne n'est encore inscrit. Sois le premier !")
+
+  -- Pour les officiers : qui a répondu, qui ne l'a pas fait, qui n'a pas l'add-on.
+  local seen = CreateFrame("Frame", nil, body)
+  seen:SetPoint("BOTTOMLEFT", pad, 12)
+  seen:SetSize(inner, 28)
+  local rule = T.Line(seen, C.navyLine, 1)
+  rule:SetPoint("TOPLEFT"); rule:SetPoint("TOPRIGHT")
+  d.seenLabel = T.Text(seen, "body", 10, C.brume)
+  d.seenLabel:SetPoint("LEFT", 0, -2)
+  d.seenLabel:SetText("OFFICIERS")
+  d.seenText = T.Text(seen, "body", 12, C.brume)
+  d.seenText:SetPoint("LEFT", 66, -2)
+  d.seenText:SetPoint("RIGHT", -84, 0)
+  d.remind = W.Button(seen, "Relancer", "sec", 76, 22)
+  d.remind:SetPoint("RIGHT", 0, -2)
+  d.remind:SetScript("OnClick", function(btn) self:RemindMenu(btn) end)
+  W.Tip(d.remind, "Relancer", "Ceux qui ont l'add-on et n'ont pas répondu : un clic prépare le chuchotement. Ceux qui n'ont pas l'add-on, c'est à toi de les prévenir sur Discord.")
+  W.Tip(seen, "Qui a vu la sortie",
+    "Les membres qui ont l'add-on et ont répondu, ceux qui ne l'ont pas fait, et ceux qui n'ont pas l'add-on.",
+    "Chiffres approximatifs : un joueur qui a plusieurs persos sans add-on peut compter plusieurs fois.")
+  seen:EnableMouse(true)
+  d.seen = seen
 end
 
 ---------------------------------------------------------------------------
@@ -328,7 +360,7 @@ end
 
 function Tab:BuildForm(f, w, h)
   local form = T.Card(f)
-  form:SetPoint("TOPLEFT", LIST_W + 14, -42 - TOP)
+  form:SetPoint("TOPLEFT", LIST_W + 10, -TOP)
   form:SetSize(w, h)
   form:SetFrameLevel(self.detail:GetFrameLevel() + 10)
   form:EnableMouse(true)
@@ -336,7 +368,7 @@ function Tab:BuildForm(f, w, h)
   self.form = form
   local pad = 16
 
-  form.heading = T.Text(form, "title", 22, C.goldText)
+  form.heading = T.Text(form, "title", 20, C.goldText)
   form.heading:SetPoint("TOPLEFT", pad, -pad)
 
   local y = -54
@@ -397,13 +429,13 @@ function Tab:BuildForm(f, w, h)
   form.note = W.Edit(form, w - 2 * pad, 26, "Consignes, consommables, heure de fin…", 500)
   form.note:SetPoint("TOPLEFT", pad, y - 16)
 
-  form.save = W.Button(form, "Enregistrer", "gold", 150, 32)
+  form.save = W.Button(form, "Enregistrer", "red", 150, 30)
   form.save:SetPoint("BOTTOMLEFT", pad, pad)
   form.save:SetScript("OnClick", function() self:SaveForm() end)
-  form.cancel = W.Button(form, "Annuler", "slate", 110, 32)
+  form.cancel = W.Button(form, "Annuler", "sec", 110, 30)
   form.cancel:SetPoint("LEFT", form.save, "RIGHT", 10, 0)
   form.cancel:SetScript("OnClick", function() form:Hide() end)
-  form.cancelEvent = W.Button(form, "Annuler la sortie", "danger", 150, 28)
+  form.cancelEvent = W.Button(form, "Annuler la sortie", "danger", 150, 26)
   form.cancelEvent:SetPoint("BOTTOMRIGHT", -pad, pad + 2)
   form.cancelEvent:SetScript("OnClick", function()
     local ev = form.editing and Cal:Get(form.editing)
@@ -495,6 +527,11 @@ function Tab:Answer(status)
   local ok, err = Cal:SetSignup(ev.id, self.char or DR.playerName, status, self.role, self.detail.note:GetText())
   if ok then
     UI:Toast("Enregistré : " .. Cal.STATUSES[status].label .. ". Ça part à la guilde, puis au site.", "ok")
+    -- Le rôle choisi ici devient celui proposé la prochaine fois.
+    if (self.char or DR.playerName) == DR.playerName and self.role and self.role ~= DR.Profile:PreferredRole(DR.playerName) then
+      DR.Profile:SetPreferredRole(self.role)
+    end
+    self.editing = false
   else
     UI:Toast(err, "warn")
   end
@@ -512,21 +549,55 @@ function Tab:RefreshAnswer()
   for role, b in pairs(d.roleBtns) do
     local on = self.role == role
     b:SetActive(on)
-    local c = on and { 1, 1, 1 } or C.brume
+    local c = on and C.redText or C.brume
     b.icon:SetVertexColor(c[1], c[2], c[3])
   end
-  for s, b in pairs(d.answers) do b:SetActive(mine and mine.s == s) end
+  -- « Présent » est le bouton rouge tant qu'on n'a pas répondu ; ensuite, la réponse choisie.
+  for s, b in pairs(d.answers) do
+    b:SetActive(mine and mine.s == s or (not mine and s == "yes"))
+  end
   local open = Cal:IsOpen(ev) or DR.Guild:IAmOfficer()
   for _, b in pairs(d.answers) do b:SetEnabled(open) end
+  local who = Util.ShortName(self.char or DR.playerName)
+  local role = self.role and (Util.ROLE_LABEL[self.role] or "") or ""
+  d.edit:SetShown(self.editing and open)
+  d.line:SetShown(not self.editing)
+  d.change:SetShown(open)
+  d.change:SetLabel(self.editing and "Fermer" or "Modifier")
   if not open then
-    d.state:SetText(T.Hex(C.amber) .. "Inscriptions fermées.|r")
-  elseif mine then
-    d.state:SetText(T.Hex(C.teal) .. "Ta réponse : " .. Cal.STATUSES[mine.s].label .. "|r" .. T.Hex(C.muted)
-      .. " · avec " .. Util.ShortName(mine.c) .. " · " .. Util.Ago(mine.u)
-      .. ". Partagée avec la guilde ; les officiers la passent au site.|r")
+    d.line:SetText(T.Hex(C.amber) .. "Inscriptions fermées.|r")
+    d.state:SetText("")
   else
-    d.state:SetText(T.Hex(C.amber) .. "Tu viens ? Réponds en un clic.|r")
+    d.line:SetText((mine and "Tu viens avec " or "Tu viendrais avec ") .. T.Hex(C.goldText) .. who .. "|r"
+      .. (role ~= "" and (", en " .. role:lower()) or ""))
+    if mine then
+      d.state:SetText(T.Hex(C.green) .. "Ta réponse : " .. Cal.STATUSES[mine.s].label .. "|r" .. T.Hex(C.muted)
+        .. " · " .. Util.Ago(mine.u) .. ". Partagée avec la guilde ; les officiers la passent au site.|r")
+    else
+      d.state:SetText(T.Hex(C.amber) .. "Tu viens ? Réponds en un clic.|r")
+    end
   end
+end
+
+---------------------------------------------------------------------------
+-- Relancer (officiers)
+---------------------------------------------------------------------------
+function Tab:RemindMenu(anchor)
+  if not DR.Guild:IAmOfficer() or not self.selected then return end
+  local seen = Cal:SeenBy(self.selected)
+  local items = {}
+  items[#items + 1] = { text = "N'ont pas répondu (" .. #seen.pendingNames .. ")", disabled = true }
+  for i, name in ipairs(seen.pendingNames) do
+    if i > 10 then break end
+    items[#items + 1] = { text = "Écrire à " .. Util.ClassName(name, DR.Profile:ClassOf(name)), func = function() Util.Whisper(name) end }
+  end
+  if #seen.pendingNames > 10 then
+    items[#items + 1] = { text = "et " .. (#seen.pendingNames - 10) .. " autres", disabled = true }
+  end
+  if seen.noAddon > 0 then
+    items[#items + 1] = { text = seen.noAddon .. " sans add-on : à prévenir sur Discord", disabled = true }
+  end
+  W.OpenMenu(anchor, items, 280)
 end
 
 ---------------------------------------------------------------------------
@@ -539,20 +610,24 @@ function Tab:Refresh()
   local past = ready and Cal:Past(60) or {}
   self.chips:SetLabel("upcoming", "À venir  " .. #upcoming)
   self.chips:SetLabel("past", "Passées  " .. #past)
-  local awaiting = ready and #Cal:AwaitingAnswer() or 0
-  if awaiting > 0 then
-    self.alert:SetText(awaiting == 1 and "1 sortie attend ta réponse." or (awaiting .. " sorties attendent ta réponse."))
-  else
-    self.alert:SetText("")
-  end
+  self.pill:Set(self.view == "past" and "Sorties passées" or "Sorties à venir", self.view == "past" and #past or #upcoming)
   self.newBtn:SetShown(DR.Guild:IAmOfficer())
 
-  local items = self.view == "past" and past or upcoming
+  local all = self.view == "past" and past or upcoming
+  local items = all
+  if self.search ~= "" then
+    items = {}
+    for _, ev in ipairs(all) do
+      if Util.Fold(ev.t or ""):find(self.search, 1, true) then items[#items + 1] = ev end
+    end
+  end
   if not self.selected or not Cal:Get(self.selected) then
     self.selected = items[1] and items[1].id or nil
   end
   if not ready then
     self.list:SetEmptyText(IsInGuild() and "Chargement de la guilde…" or "Rejoins la guilde pour voir ses sorties.")
+  elseif self.search ~= "" then
+    self.list:SetEmptyText("Aucune sortie ne correspond.")
   elseif self.view == "past" then
     self.list:SetEmptyText("Aucune sortie passée ces 60 derniers jours.")
   else
@@ -563,14 +638,14 @@ function Tab:Refresh()
   self:RefreshDetail()
 end
 
--- La ligne d'état de la synchro.
-local SYNC_COLOR = { ok = C.green, wait = C.amber, alone = C.muted, late = C.amber }
-
+-- La bande ambre : seulement si la guilde n'a pas répondu.
 function Tab:RefreshSync()
-  local s = DR.Sync:Status()
-  local c = SYNC_COLOR[s.level] or C.muted
-  self.syncDot:SetColorTexture(c[1], c[2], c[3], 1)
-  self.syncText:SetText(s.text)
+  local s = DR.Store:IsReady() and DR.Sync:Status() or { level = "wait" }
+  local late = s.level == "late"
+  self.strip:SetShown(late)
+  if late then
+    self.syncText:SetText(Util.Truncate(s.text:gsub(" : redemande à la guilde.*$", "."), 90))
+  end
   self.syncBtn:SetEnabled(DR.Store:IsReady() and IsInGuild())
 end
 
@@ -580,23 +655,24 @@ function Tab:RefreshDetail()
   if not ev then
     d.body:Hide()
     d.empty:Show()
-    d.empty:SetText("Choisis une sortie dans la liste pour voir qui vient et t'inscrire.")
+    d.empty:SetText("Choisis une sortie dans la liste pour voir qui vient et répondre.")
     return
   end
   d.empty:Hide()
   d.body:Show()
-  local kc = kindColor(ev.k)
-  d.kind:SetText(T.Hex(kc) .. (Cal.KINDS[ev.k] or Cal.KINDS.autre).label:upper() .. "|r")
-  if ev.st == "cancelled" then d.badge:Set("Annulée", C.red); d.badge:Show()
-  elseif not Cal:IsOpen(ev) then d.badge:Set("Inscriptions fermées", C.amber); d.badge:Show()
-  elseif ev.src == "site" then d.badge:Set("Du site", C.teal); d.badge:Show()
-  else d.badge:Hide() end
-  d.when:SetText(Util.Until(ev.d))
+  local kind = Cal.KINDS[ev.k or "raid"] or Cal.KINDS.autre
+  d.iconBox.icon:SetTexture(T.KIND_ICON[ev.k or "raid"] or T.KIND_ICON.autre)
   d.title:SetText(ev.t)
   local dur = ev.dur and ev.dur > 0 and (" · " .. (Util.Duration(ev.dur * 60) or "")) or ""
   local cap = ev.cap and (" · " .. ev.cap .. " joueurs") or ""
   local p = Util.DateParts(ev.d)
-  d.date:SetText(p.jourLong .. " " .. p.num .. " " .. p.moisLong .. " à " .. p.heure .. dur .. cap)
+  d.sub:SetText(kind.label .. " · " .. p.jourLong .. " " .. p.num .. " " .. p.moisLong .. " à " .. p.heure .. dur .. cap
+    .. " · " .. Util.Until(ev.d))
+  if ev.st == "cancelled" then d.badge:Set("Annulée", C.red); d.badge:Show()
+  elseif not Cal:IsOpen(ev) then d.badge:Set("Inscriptions fermées", C.amber); d.badge:Show()
+  elseif ev.src == "site" then d.badge:Set("Du site", C.green); d.badge:Show()
+  else d.badge:Hide() end
+
   local info = {}
   if ev.lead then info[#info + 1] = T.Hex(C.muted) .. "Chef de raid :|r " .. ev.lead end
   if ev.rdv then info[#info + 1] = T.Hex(C.muted) .. "Rendez-vous :|r " .. ev.rdv end
@@ -606,24 +682,42 @@ function Tab:RefreshDetail()
 
   local counts = Cal:Counts(ev.id)
   local needs = { T = ev.nt or 0, H = ev.nh or 0, D = ev.nd or 0 }
-  for role, n in pairs(d.needs) do
-    n:SetShown(needs[role] > 0)
-    n:Set(role, counts[role], needs[role])
+  local anyNeed = false
+  for role, bar in pairs(d.needs) do
+    local need, have = needs[role], counts[role]
+    bar:SetShown(need > 0)
+    if need > 0 then
+      anyNeed = true
+      local ratio = have / need
+      bar:Set(math.min(1, ratio), ratio >= 1 and "green" or (ratio >= 0.5 and "gold" or "red"), BAR_LABEL[role] .. " " .. have .. "/" .. need)
+    end
   end
-  d.missing:SetText(Cal:MissingText(ev, counts) or (needs.T + needs.H + needs.D > 0 and (T.Hex(C.teal) .. "Compo complète|r") or ""))
-
-  local seen = Cal:SeenBy(ev.id)
-  d.seenText:SetText(T.Hex(C.teal) .. seen.answered .. "|r ont répondu   " .. T.Hex(C.amber) .. seen.pending
-    .. "|r n'ont pas répondu   " .. T.Hex(C.amber) .. seen.noAddon .. "|r sans add-on")
+  local missing = Cal:MissingText(ev, counts)
+  if missing then
+    d.missing:SetText(missing)
+    T.Color(d.missing, C.amber)
+  elseif anyNeed then
+    d.missing:SetText("Compo complète")
+    T.Color(d.missing, C.green)
+  else
+    d.missing:SetText("")
+  end
 
   local officer = DR.Guild:IAmOfficer()
   d.editBtn:SetShown(officer)
   d.lockBtn:SetShown(officer and ev.st ~= "cancelled")
   d.lockBtn:SetLabel(ev.st == "closed" and "Rouvrir" or "Fermer")
+  d.seen:SetShown(officer)
+  if officer then
+    local seen = Cal:SeenBy(ev.id)
+    d.seenText:SetText(T.Hex(C.green) .. seen.answered .. "|r ont répondu · " .. T.Hex(C.amber) .. seen.pending
+      .. "|r pas encore · " .. T.Hex(C.amber) .. seen.noAddon .. "|r sans add-on")
+  end
 
   -- Perso et rôle proposés : ceux de mon inscription, sinon le perso connecté.
   if self.answerFor ~= ev.id then
     self.answerFor = ev.id
+    self.editing = false
     local mine = Cal:MySignup(ev.id)
     self.char = mine and mine.c or DR.playerName
     self.role = (mine and mine.r) or DR.Profile:PreferredRole(self.char) or "D"
@@ -632,18 +726,20 @@ function Tab:RefreshDetail()
   self:RefreshAnswer()
 
   -- Liste des inscrits par réponse.
-  local rows, groups = {}, {}
+  local rows, groups, total = {}, {}, 0
   for _, s in ipairs(Cal:Signups(ev.id)) do
     groups[s.s] = groups[s.s] or {}
     table.insert(groups[s.s], s)
+    total = total + 1
   end
+  d.signHeader:SetLabel("Inscrits", total)
   for _, st in ipairs(Cal.STATUS_ORDER) do
     local g = groups[st]
     if g and #g > 0 then
       local sc = statusColor(st)
       rows[#rows + 1] = { text = T.Hex(sc) .. GROUP_LABEL[st] .. " (" .. #g .. ")|r" }
       for _, s in ipairs(g) do
-        local txt = "   " .. T.RoleIcon(s.r, 12, C.brume) .. "  " .. Util.ClassName(s.c, s.cl or DR.Profile:ClassOf(s.c))
+        local txt = "   " .. T.RoleIcon(s.r, 12, C.brume) .. "  " .. T.Hex(C.goldText) .. Util.ClassName(s.c, s.cl or DR.Profile:ClassOf(s.c)) .. "|r"
         if s.m then txt = txt .. T.Hex(C.muted) .. "  « " .. s.m .. " »|r" end
         if not DR.Guild:IsMember(s.c) and next(DR.Guild.members) then
           txt = txt .. T.Hex(C.muted) .. "  (hors guilde)|r"
@@ -657,4 +753,11 @@ end
 
 function Tab:OnShow()
   if self.form then self.form:Hide() end
+end
+
+-- Pastille orange de l'onglet : les sorties qui attendent ma réponse.
+function Tab:Badge()
+  if not DR.Store:IsReady() then return 0 end
+  local n = #Cal:AwaitingAnswer()
+  return n, n == 1 and "1 sortie attend ta réponse." or (n .. " sorties attendent ta réponse.")
 end

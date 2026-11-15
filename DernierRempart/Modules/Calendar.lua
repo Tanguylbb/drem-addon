@@ -133,19 +133,25 @@ function Cal:SeenBy(eventId)
     end
   end
   local pending, noAddon, pendingAcc = 0, 0, {}
+  local pendingNames, noAddonNames = {}, {}
   for _, m in pairs(DR.Guild.members) do
     if DR.Guild:HasAddon(m.name) then
       local c = Store:Get("chars", m.name)
       local acc = c and c.acc
       if not answeredName[m.name] and not (acc and (answeredAcc[acc] or pendingAcc[acc])) then
         pending = pending + 1
+        pendingNames[#pendingNames + 1] = m.name
         if acc then pendingAcc[acc] = true end
       end
     else
       noAddon = noAddon + 1
+      noAddonNames[#noAddonNames + 1] = m.name
     end
   end
-  return { answered = answered, pending = pending, noAddon = noAddon }
+  table.sort(pendingNames)
+  table.sort(noAddonNames)
+  return { answered = answered, pending = pending, noAddon = noAddon,
+    pendingNames = pendingNames, noAddonNames = noAddonNames }
 end
 
 function Cal:IsOpen(ev)

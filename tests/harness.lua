@@ -75,17 +75,42 @@ function Methods:IsVisible()
   return true
 end
 function Methods:GetParent() return self._parent end
-function Methods:CreateTexture()
+function Methods:CreateTexture(_, layer, _, sub)
   assert(not NO_SCRIPTS[self._type], "CreateTexture sur un " .. self._type)
-  return newObject(self._client, "Texture", nil, self)
+  local o = newObject(self._client, "Texture", nil, self)
+  o._layer, o._sub = layer or "ARTWORK", sub or 0
+  return o
 end
-function Methods:CreateFontString()
+function Methods:CreateFontString(_, layer)
   assert(not NO_SCRIPTS[self._type], "CreateFontString sur un " .. self._type)
-  return newObject(self._client, "FontString", nil, self)
+  local o = newObject(self._client, "FontString", nil, self)
+  o._layer, o._sub = layer or "OVERLAY", 0
+  return o
 end
-function Methods:SetSize(w, h) self._w, self._h = w, h end
-function Methods:SetWidth(w) self._w = w end
-function Methods:SetHeight(h) self._h = h end
+function Methods:SetSize(w, h) self._w, self._h, self._wset, self._hset = w, h, true, true end
+function Methods:SetWidth(w) self._w, self._wset = w, true end
+function Methods:SetHeight(h) self._h, self._hset = h, true end
+
+-- Géométrie : on retient les ancrages, les couleurs et les textes pour pouvoir
+-- dessiner l'interface hors du jeu (tests/preview.lua). Rien ici ne change le
+-- comportement des tests.
+function Methods:SetPoint(point, rel, relPoint, x, y)
+  if type(rel) == "number" then rel, relPoint, x, y = nil, nil, rel, relPoint end
+  if type(rel) == "string" then rel = nil end
+  self._points = self._points or {}
+  for i, p in ipairs(self._points) do
+    if p.point == point then table.remove(self._points, i); break end
+  end
+  self._points[#self._points + 1] = { point = point, rel = rel, relPoint = relPoint or point, x = x or 0, y = y or 0 }
+end
+function Methods:ClearAllPoints() self._points = nil; self._all = nil end
+function Methods:SetAllPoints(rel) self._all = rel or self._parent; self._points = nil end
+function Methods:SetColorTexture(r, g, b, a) self._color, self._tex, self._grad = { r, g, b, a or 1 }, nil, nil end
+function Methods:SetTexture(t) self._tex, self._color = t, nil end
+function Methods:SetGradient(orient, c1, c2) self._grad, self._color = { orient = orient, from = c1, to = c2 }, nil end
+function Methods:SetVertexColor(r, g, b, a) self._vertex = { r, g, b, a or 1 } end
+function Methods:SetTextColor(r, g, b, a) self._tcolor = { r, g, b, a or 1 } end
+function Methods:SetJustifyH(j) self._justify = j end
 function Methods:GetWidth() return self._w end
 function Methods:GetHeight() return self._h end
 function Methods:SetText(t)
@@ -96,7 +121,15 @@ function Methods:GetText() return self._text end
 function Methods:Insert(t) self:SetText(self._text .. t) end
 function Methods:GetStringWidth() return #(self._text or "") * 6 end
 function Methods:GetFont() return "font", 12, "" end
-function Methods:GetFrameLevel() return 1 end
+function Methods:GetFrameLevel()
+  if self._level then return self._level end
+  local p = self._parent
+  return (p and p.GetFrameLevel and p:GetFrameLevel() or 0) + 1
+end
+function Methods:SetFrameLevel(n) self._level = n end
+function Methods:SetWordWrap(on) self._wrap = on end
+function Methods:SetJustifyV(j) self._justifyV = j end
+function Methods:SetClipsChildren(on) self._clip = on end
 function Methods:GetPoint() return "CENTER", nil, "CENTER", 0, 0 end
 function Methods:GetCenter() return 0, 0 end
 function Methods:GetEffectiveScale() return 1 end
@@ -125,7 +158,7 @@ function Methods:Click(button)
 end
 function Methods:SetAlpha(a) self._alpha = a end
 function Methods:GetAlpha() return self._alpha end
-function Methods:SetFont() return true end
+function Methods:SetFont(font, size) self._font, self._fsize = font, size; return true end
 
 ---------------------------------------------------------------------------
 -- Réseau : temps, messages du canal de guilde

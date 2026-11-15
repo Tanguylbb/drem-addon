@@ -17,7 +17,7 @@ DR2:<JSON encodé en Base64 standard>
   à la ligne.
 - Le JSON est en UTF-8 brut (les accents ne sont pas échappés).
 - `DR1:` reste le code de fiche perso de la page « Importer depuis le jeu ».
-  L'onglet Pont le refuse avec un message clair.
+  L'écran Officiers le refuse avec un message clair.
 
 ## L'enveloppe
 

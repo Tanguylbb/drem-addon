@@ -3,7 +3,7 @@
 À écrire plus tard, seulement si le copier-coller prend trop de temps aux
 officiers. Ce document dit **ce que le programme doit faire** (et, surtout, ce
 qu'il ne doit pas faire) pour qu'un officier puisse l'ouvrir sans crainte. Le
-côté add-on est déjà en place dans la 0.3 : l'onglet Pont en montre l'état.
+côté add-on est déjà en place dans la 0.3 : l'écran Officiers en montre l'état.
 
 ## Ce que fait le programme, en un passage
 

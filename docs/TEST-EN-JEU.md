@@ -20,17 +20,24 @@ capture) ou « bizarre ».
 
 ## 1. Fenêtre et style (3 min)
 
-- [ ] `/rempart` ouvre la fenêtre : blason, titre doré, onglets soulignés.
-- [ ] Les polices Marcellus (titres) et Open Sans (texte) s'affichent, accents compris.
-- [ ] La fenêtre se déplace par l'en-tête et se ferme avec Échap.
-- [ ] O voit l'onglet **Pont** ; M ne le voit pas.
+- [ ] `/rempart` ouvre la fenêtre : médaillon à la tour en haut à gauche, bouton
+      fermer rouge, « Dernier Rempart » en Marcellus dans la barre de titre,
+      onglets d'icônes sur le bord droit.
+- [ ] Le texte est dans la police du jeu, accents compris ; aucun carré ni point
+      d'interrogation à la place d'une lettre.
+- [ ] La fenêtre se déplace par la barre de titre et se ferme avec Échap ou le
+      bouton rouge.
+- [ ] O voit l'icône **Officiers** (bouclier) ; M ne la voit pas.
+- [ ] Les icônes d'onglet ont une infobulle ; l'onglet choisi est cerclé d'or.
 
 ## 2. Sorties et inscriptions (8 min)
 
-- [ ] O : « Nouvelle sortie », remplir, Enregistrer. La sortie apparaît chez O.
+- [ ] O : « + Nouvelle sortie » (en bas à gauche), remplir, Enregistrer. La sortie
+      apparaît chez O.
 - [ ] M : la sortie apparaît chez M **sans recharger** (quelques secondes).
-- [ ] M : choisir le rôle Soins, cliquer « Présent ». Chez O, M apparaît dans
-      les Présents avec l'icône soins, et le compteur « soins » bouge.
+- [ ] M : « Modifier » (sous les boutons de réponse), choisir le rôle Soins, puis
+      cliquer « Présent ». Chez O, M apparaît dans les Présents avec l'icône
+      soins, et la barre « Soins » monte.
 - [ ] M : changer pour « Peut-être » avec un petit mot. O voit le mot.
 - [ ] O : « Fermer » les inscriptions. M ne peut plus cliquer.
 - [ ] O : « Modifier », changer l'heure. M voit la nouvelle heure.
@@ -43,13 +50,14 @@ capture) ou « bizarre ».
 
 - [ ] O (ou M) ouvre sa fenêtre de métier : le chat dit « N recettes lues et
       partagées ».
-- [ ] L'autre cherche une recette dans « Qui sait faire quoi » : il trouve
-      l'artisan, voit « en ligne ».
+- [ ] L'autre cherche une recette dans Artisans : il trouve l'artisan, voit « en
+      ligne ».
 - [ ] « Demander à … » : l'artisan reçoit un message dans le chat, la commande
-      est dans « Commandes › Pour moi ». Accepter, puis « C'est fait ».
-- [ ] « Recettes recherchées » : Maj+clic sur une recette (HV, chat ou
-      fenêtre de métier) remplit le champ. Ajouter. L'autre clique « Moi aussi ».
-- [ ] « Personne ne l'a » liste des recettes du métier que personne ne connaît.
+      est dans « Mes demandes › Pour moi ». Accepter, puis « C'est fait ».
+- [ ] « À acheter » : Maj+clic sur une recette (HV, chat ou fenêtre de métier)
+      remplit le champ. Ajouter. L'autre fait « +1 Je la veux ».
+- [ ] Le filtre « Personne ne la sait » liste des recettes du métier que
+      personne ne connaît.
 
 ## 4. Carte (4 min)
 
@@ -61,68 +69,100 @@ capture) ou « bizarre ».
 
 ## 5. Pont avec le site (4 min, O seulement)
 
-- [ ] « Générer le code » : un code `DR2:…` apparaît, sélectionné. Ctrl+C,
+- [ ] Écran Officiers, section « Copier-coller, en secours » (repliée, la déplier) :
+      « Générer le code » : un code `DR2:…` apparaît, sélectionné. Ctrl+C,
       coller dans un bloc-notes : il est complet.
 - [ ] Coller un code du site (page Pont jeu), « Vérifier » : la liste de ce qui
       va changer s'affiche. « Importer » : les sorties du site arrivent chez M.
-- [ ] Le point en haut de la fenêtre passe au vert : « Données du site : il y a … ».
+- [ ] Le point en bas à gauche de la fenêtre est vert ; l'infobulle donne « Données
+      du site : il y a … ».
 
 ## 6. Version 0.3 : ce qui ne se teste que dans le vrai jeu
 
 **Banque de guilde et effort de guerre** (la lecture du journal est la partie la
 moins sûre : le jeu peut la refuser ou la limiter sur Forever)
 
-- [ ] Les pastilles sont visibles : « Qui sait faire quoi / Recettes recherchées /
-      Commandes » (Artisans), « En cours / Terminés » (Effort de guerre),
-      « Tous / Officiers ». Sinon, le noter : sans elles on ne change pas de vue.
-- [ ] Onglet **Banque** : le journal d'or lu, membre par membre, avec les trois
-      chiffres du haut.
+- [ ] Les boutons de vue sont visibles : « Objectifs / Journal de la banque »
+      (Effort de guerre), « 7 jours / 30 jours / Tout » (journal), « Tous /
+      Officiers » (Officiers). Sinon, le noter : sans eux on ne change pas de vue.
+- [ ] **Journal de la banque** : le journal d'or lu, membre par membre, avec les
+      trois chiffres du haut.
 - [ ] Banque ouverte, taper `/rempart banque test` (ou le bouton « Ce que le jeu
-      rend » de l'onglet Banque) : « Fonctions du journal :
+      rend du journal » de l'écran Officiers) : « Fonctions du journal :
       présentes », un nombre de lignes pour le journal d'or et pour chaque
       onglet. Noter ce qui est dit si c'est « absentes » ou « illisible ».
 - [ ] Même chose avec un membre simple, puis avec un officier : les rangs
       voient-ils tous les onglets et le journal d'or ? Noter qui voit quoi.
 - [ ] O crée un objectif en or (« Nouvel objectif »), sans date de début. M dépose
-      1 po dans la
-      banque, ferme la banque. Chez M : message « banque de guilde lue ». Chez
-      O : l'objectif a avancé et le dépôt est listé à droite (l'heure n'est
-      donnée qu'à l'heure près).
+      1 po dans la banque, ferme la banque. Chez M : message « banque de guilde
+      lue ». Chez O : la barre de l'objectif a avancé et le dépôt est listé dans
+      « Derniers dons » (l'heure n'est donnée qu'à l'heure près).
 - [ ] O ouvre la banque à son tour : le total ne bouge pas (pas de doublon).
 - [ ] Un retrait et une réparation ne sont **pas** comptés.
 - [ ] Un objectif en objets (Maj+clic sur l'objet) : déposer l'objet dans la
       banque le fait avancer.
-- [ ] Deux objectifs en or ouverts en même temps : le dépôt est « à classer » ;
-      O choisit l'objectif avec « Classer ».
-- [ ] Réglage « Qui voit les noms et les montants » sur Officiers : M ne voit
-      plus que les totaux.
+- [ ] Deux objectifs en or ouverts en même temps : le dépôt est « à classer »
+      (pastille orange sur l'icône Effort de guerre, chez O) ; O choisit
+      l'objectif avec « Classer » dans le journal de la banque.
+- [ ] Écran Officiers, « Qui voit les montants » sur Officiers : M ne voit plus
+      que les totaux.
 - [ ] Le journal garde combien de lignes ? (noter le nombre vu après plusieurs
       dépôts : la lecture ne peut pas remonter plus loin.)
 
 **Artisans et recettes**
 
-- [ ] Ouvrir un métier avec des recettes non apprises : l'onglet Artisans range
+- [ ] Ouvrir un métier avec des recettes non apprises : l'écran Artisans range
       les recettes par type de craft (Sacs, Robes…). Noter si les types ont les
       mêmes noms que dans la fenêtre du jeu.
-- [ ] « Personne ne l'a » liste les recettes inconnues ; « +1 » sur l'une d'elles :
-      l'autre testeur voit le compteur monter, et la recette apparaît dans
-      « Recettes recherchées ».
+- [ ] Les recettes que personne ne sait sont marquées « Personne » ; « +1 » sur
+      l'une d'elles : l'autre testeur voit le compteur monter, et la recette
+      apparaît dans « À acheter ».
 - [ ] « Où la trouver » : saisir un texte, il arrive chez l'autre testeur.
-- [ ] Mes persos : un métier jamais ouvert est « À ouvrir » ; l'ouvrir le passe à
-      « Lu ». Le chat dit une seule ligne à la connexion.
+- [ ] Un métier jamais ouvert : le bandeau rouge des Artisans le dit ; l'ouvrir
+      fait disparaître le bandeau. Le chat dit une seule ligne à la connexion.
 
 **Carte, sorties, synchro**
 
-- [ ] Carte : les trois chiffres et la raison de chaque membre en ligne (sur la
-      carte, autre zone, en donjon, position coupée, pas d'add-on).
-- [ ] Sorties : la ligne du haut passe à « À jour : dernière réponse de … » ;
-      « Redemander à la guilde » fait arriver une sortie manquante sans commande.
-- [ ] Sorties : « Qui l'a vue » donne des nombres plausibles.
+- [ ] Carte : la phrase « N en ligne · M sur la carte » et la raison de chaque
+      membre qu'on ne voit pas (autre zone, en donjon, position coupée, pas
+      d'add-on) ; « Voir les autres » déplie la liste.
+- [ ] Le point en bas à gauche est vert quand la guilde a répondu. Quand elle ne
+      répond plus, il passe à l'ambre et la bande « Redemander » apparaît dans
+      Sorties ; « Redemander » fait arriver une sortie manquante sans commande.
+- [ ] Sorties (chez O) : la ligne « Officiers » donne des nombres plausibles, et
+      « Relancer » liste ceux qui n'ont pas répondu.
 
 **Relais automatique** (seulement quand le programme existera)
 
-- [ ] Onglet Pont : « Pas de relais détecté » sans le mini add-on de données ;
+- [ ] Écran Officiers : « Pas de relais détecté » sans le mini add-on de données ;
       avec lui, l'état passe à « Relais connecté ».
+
+## 7. Version 0.4 : le style et la navigation (la partie qui ne se voit que dans le jeu)
+
+L'interface reprend les fenêtres du jeu avec des pièces simples (aplats, filets,
+quelques images). Rien de tout ça n'a pu être vu dans le vrai client : c'est
+l'essentiel de ce test.
+
+- [ ] Le médaillon (tour dorée sur fond marine) est rond, net, et déborde du coin
+      haut gauche comme le portrait des autres fenêtres. S'il est carré ou
+      absent, le noter.
+- [ ] Le bouton fermer (rouge, croix dorée) est visible au coin haut droit.
+- [ ] Les cinq icônes d'onglet sont visibles sur le bord droit, nettes, sans
+      carré blanc. La pastille orange affiche un chiffre lisible.
+- [ ] Les icônes des métiers (Artisans) et des types de sortie (Sorties) sont les
+      bonnes ; une icône verte avec un « ? » veut dire que le jeu n'a pas trouvé
+      le fichier : noter le métier ou le type.
+- [ ] Les barres (rôles, objectifs) montrent un dégradé et un chiffre au milieu,
+      lisible sur le fond noir comme sur la couleur.
+- [ ] La fiche à droite est sur fond marine, avec la tour très pâle en bas à droite.
+- [ ] Les listes défilent à la molette, la barre de défilement est visible.
+- [ ] Aucun texte n'est coupé ou ne déborde de son cadre (noter l'écran et la
+      ligne). Les noms longs (« Profondeurs de Brassenoire ») tiennent.
+- [ ] Les cases à cocher montrent une coche dorée quand elles sont cochées.
+- [ ] Les menus (filtre des recettes, choix du perso) s'ouvrent sous leur bouton
+      et se ferment en cliquant ailleurs.
+- [ ] Changer l'échelle de l'interface du jeu (Échelle de l'interface, 0.8 puis
+      1.2) : la fenêtre reste utilisable.
 
 ## À remonter
 

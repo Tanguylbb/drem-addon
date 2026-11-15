@@ -1,11 +1,15 @@
--- Composants d'interface au style du site : boutons Or et Ardoise, réponses
--- en sarcelle, onglets soulignés, pastilles, champs, listes défilantes, menus.
+-- Composants d'interface au style des fenêtres du jeu : boutons rouge sombre et
+-- ardoise, en-têtes de section dorés, barres à chiffre central, onglets d'icônes
+-- sur le bord, fiche marine, listes défilantes, menus.
 
 local _, DR = ...
 local W = {}
 DR.Widgets = W
 local T = DR.Theme
 local C = T.C
+
+local BLACK = { 0, 0, 0 }
+local function rgb(h) return { tonumber(h:sub(1, 2), 16) / 255, tonumber(h:sub(3, 4), 16) / 255, tonumber(h:sub(5, 6), 16) / 255 } end
 
 ---------------------------------------------------------------------------
 -- Infobulle simple
@@ -26,75 +30,61 @@ end
 ---------------------------------------------------------------------------
 -- Boutons
 ---------------------------------------------------------------------------
--- style : gold (action principale), slate (secondaire), ghost (discret),
--- toggle (réponse, sarcelle quand choisie), chip (pastille de filtre),
--- danger (supprimer).
+-- style : red (l'action principale de l'écran), sec (secondaire), ghost (discret),
+-- toggle (réponse : rouge quand choisie), chip (pastille de filtre : cerclée d'or
+-- quand choisie), danger (supprimer). « gold » et « slate » sont d'anciens noms
+-- de red et sec.
+local ALIAS = { gold = "red", slate = "sec" }
 local STYLES = {
-  gold = { font = "title", size = 15 },
-  slate = { font = "title", size = 15 },
-  ghost = { font = "semi", size = 12 },
-  toggle = { font = "semi", size = 12 },
-  chip = { font = "semi", size = 12 },
-  danger = { font = "semi", size = 12 },
+  red = { size = 13 }, sec = { size = 13 }, ghost = { size = 12 },
+  toggle = { size = 12 }, chip = { size = 12 }, danger = { size = 12 },
 }
+
+local function skin(b, top, bottom, inner, innerAlpha, text, shadow)
+  T.Gradient(b.bg, top, bottom)
+  T.Border(b, BLACK, 1)
+  T.InnerBorder(b, inner, innerAlpha)
+  T.Color(b.label, text)
+  b.label:SetShadowColor(0, 0, 0, shadow or 0.9)
+end
+
+local RED_INNER = rgb("B5862F")
 
 function W.StyleButton(b)
   local s = b.style
-  local active = b.active
-  local tex, label = b.bg, b.label
-  if s == "gold" then
-    T.Gradient(tex, C.goldTop, C.goldBottom)
-    T.Border(b, { 1, 0.94, 0.78 }, 0.55)
-    T.Color(label, C.goldInk)
-    label:SetShadowColor(1, 1, 1, 0.25)
-  elseif s == "slate" then
-    T.Gradient(tex, C.slateTop, C.slateBottom)
-    T.Border(b, { 1, 1, 1 }, 0.18)
-    T.Color(label, C.ivory)
+  if s == "red" then
+    skin(b, C.redTop, C.redBottom, RED_INNER, 1, C.redText)
   elseif s == "toggle" then
-    if active then
-      tex:SetColorTexture(C.tealDark[1], C.tealDark[2], C.tealDark[3], 1)
-      T.Border(b, C.tealBorder)
-      label:SetTextColor(1, 1, 1)
+    if b.active then
+      skin(b, C.redTop, C.redBottom, RED_INNER, 1, C.redText)
     else
-      tex:SetColorTexture(C.sunk[1], C.sunk[2], C.sunk[3], 1)
-      T.Border(b, C.line2)
-      label:SetTextColor(0.89, 0.9, 0.925)
+      skin(b, C.slateTop, C.slateBottom, C.line2, 1, C.slateText)
     end
   elseif s == "chip" then
-    if active then
-      tex:SetColorTexture(C.goldText[1], C.goldText[2], C.goldText[3], 1)
-      T.Border(b, C.goldText)
-      T.Color(label, C.goldInk)
-      label:SetShadowColor(0, 0, 0, 0)
+    if b.active then
+      skin(b, C.slateTop, C.slateBottom, C.gold, 1, C.goldPale)
     else
-      tex:SetColorTexture(C.sunk[1], C.sunk[2], C.sunk[3], 1)
-      T.Border(b, C.line2)
-      label:SetTextColor(0.85, 0.87, 0.9)
-      label:SetShadowColor(0, 0, 0, 0.55)
+      skin(b, C.slateTop, C.slateBottom, C.line2, 1, C.slateText)
     end
   elseif s == "danger" then
-    tex:SetColorTexture(C.sunk[1], C.sunk[2], C.sunk[3], 1)
-    T.Border(b, C.red, 0.6)
-    T.Color(label, C.red)
-  else -- ghost
-    tex:SetColorTexture(C.sunk[1], C.sunk[2], C.sunk[3], 1)
-    T.Border(b, C.line2)
-    T.Color(label, C.ivory)
+    skin(b, C.slateTop, C.slateBottom, C.red, 0.6, C.red)
+  else -- sec, ghost
+    skin(b, C.slateTop, C.slateBottom, C.line2, 1, C.slateText)
   end
 end
 
 function W.Button(parent, text, style, width, height)
   local b = CreateFrame("Button", nil, parent)
-  b.style = style or "ghost"
-  local st = STYLES[b.style] or STYLES.ghost
-  b:SetSize(width or 120, height or 30)
+  style = ALIAS[style or ""] or style or "ghost"
+  b.style = style
+  local st = STYLES[style] or STYLES.ghost
+  b:SetSize(width or 120, height or 26)
   b.bg = b:CreateTexture(nil, "BACKGROUND")
   b.bg:SetAllPoints()
   local hl = b:CreateTexture(nil, "HIGHLIGHT")
   hl:SetAllPoints()
-  hl:SetColorTexture(1, 1, 1, 0.07)
-  b.label = T.Text(b, st.font, st.size)
+  hl:SetColorTexture(1, 1, 1, 0.08)
+  b.label = T.Text(b, "body", st.size)
   b.label:SetPoint("LEFT", 6, 0)
   b.label:SetPoint("RIGHT", -6, 0)
   b.label:SetJustifyH("CENTER")
@@ -103,13 +93,14 @@ function W.Button(parent, text, style, width, height)
     self.active = on and true or false
     W.StyleButton(self)
   end
-  -- Change de style (or <-> ardoise) : l'action principale d'un écran change de
-  -- couleur quand elle devient « retirer ».
+  -- Change de style : l'action principale d'un écran devient discrète quand
+  -- elle devient « retirer ».
   function b:SetStyle(newStyle)
+    newStyle = ALIAS[newStyle or ""] or newStyle
     if self.style == newStyle then return end
     self.style = newStyle
     local def = STYLES[newStyle] or STYLES.ghost
-    T.SetFont(self.label, def.font, def.size)
+    T.SetFont(self.label, "body", def.size)
     W.StyleButton(self)
   end
   b:SetScript("OnDisable", function(self) self:SetAlpha(0.45) end)
@@ -137,28 +128,131 @@ function W.IconButton(parent, icon, size, color, tip)
 end
 
 ---------------------------------------------------------------------------
--- Onglets soulignés (comme les zones du site)
+-- Onglets d'icônes sur le bord droit de la fenêtre
 ---------------------------------------------------------------------------
-function W.Tabs(parent, items, onSelect, size)
+-- items : { key, icon (nom du fichier du dossier Media), label, tip }
+function W.SideTabs(parent, items, onSelect)
+  local col = CreateFrame("Frame", nil, parent)
+  col:SetSize(54, 60)
+  col:SetFrameLevel(parent:GetFrameLevel() + 8)
+  col.buttons, col.items = {}, items
+  for _, item in ipairs(items) do
+    local b = CreateFrame("Button", nil, col)
+    b.key = item.key
+    b:SetSize(50, 50)
+    b.bg = b:CreateTexture(nil, "BACKGROUND")
+    b.bg:SetAllPoints()
+    T.Gradient(b.bg, rgb("2D241A"), rgb("0E0A07"))
+    T.Border(b, BLACK, 1)
+    T.InnerBorder(b, rgb("735833"), 1, 1)
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetSize(32, 32)
+    b.icon:SetPoint("CENTER")
+    b.icon:SetTexture(T.Icon(item.icon))
+    local hl = b:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints()
+    hl:SetColorTexture(1, 1, 1, 0.1)
+    -- Halo doré de l'onglet choisi.
+    b.glow = CreateFrame("Frame", nil, b)
+    b.glow:SetPoint("TOPLEFT", -3, 3)
+    b.glow:SetPoint("BOTTOMRIGHT", 3, -3)
+    T.Border(b.glow, C.gold, 0.45, 3)
+    b.glow:Hide()
+    -- Pastille « il y a quelque chose à faire ».
+    b.badge = CreateFrame("Frame", nil, b)
+    b.badge:SetSize(18, 18)
+    b.badge:SetPoint("TOPRIGHT", 5, 5)
+    b.badge:SetFrameLevel(b:GetFrameLevel() + 5)
+    b.badge.dot = b.badge:CreateTexture(nil, "ARTWORK")
+    b.badge.dot:SetAllPoints()
+    b.badge.dot:SetTexture(T.Icon("dot"))
+    b.badge.dot:SetVertexColor(C.amber[1], C.amber[2], C.amber[3])
+    b.badge.text = T.Text(b.badge, "bold", 10, C.goldInk, "OVERLAY")
+    b.badge.text:SetPoint("CENTER", 0, 0)
+    b.badge.text:SetShadowColor(0, 0, 0, 0)
+    b.badge:Hide()
+    b:SetScript("OnClick", function() col:Select(item.key, true) end)
+    b:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+      GameTooltip:SetText(item.label, C.goldText[1], C.goldText[2], C.goldText[3])
+      if item.tip then GameTooltip:AddLine(item.tip, C.ivory[1], C.ivory[2], C.ivory[3], true) end
+      if self.badgeTip then GameTooltip:AddLine(self.badgeTip, C.amber[1], C.amber[2], C.amber[3], true) end
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    col.buttons[item.key] = b
+  end
+  function col:Layout()
+    local y = 0
+    for _, item in ipairs(self.items) do
+      local b = self.buttons[item.key]
+      if item.hidden then
+        b:Hide()
+      else
+        b:Show()
+        b:ClearAllPoints()
+        b:SetPoint("TOPLEFT", self, "TOPLEFT", 2, -y)
+        y = y + 56
+      end
+    end
+    self:SetHeight(math.max(60, y))
+  end
+  -- Allume l'onglet sans rien lancer (quand l'écran a déjà changé).
+  function col:Mark(key)
+    self.selected = key
+    for k, b in pairs(self.buttons) do
+      local on = (k == key)
+      b.glow:SetShown(on)
+      T.InnerBorder(b, on and C.gold or rgb("735833"), 1, 1)
+    end
+  end
+  function col:Select(key, user)
+    self:Mark(key)
+    if onSelect then onSelect(key, user) end
+  end
+  function col:SetHidden(key, hidden)
+    for _, item in ipairs(self.items) do
+      if item.key == key then item.hidden = hidden end
+    end
+    self:Layout()
+  end
+  function col:SetBadge(key, n, tip)
+    local b = self.buttons[key]
+    if not b then return end
+    b.badgeTip = tip
+    if n and n > 0 then
+      b.badge.text:SetText(n > 9 and "9+" or tostring(n))
+      b.badge:Show()
+    else
+      b.badge:Hide()
+    end
+  end
+  col:Layout()
+  return col
+end
+
+---------------------------------------------------------------------------
+-- Onglets en haut d'un écran (« Objectifs », « Journal de la banque »)
+---------------------------------------------------------------------------
+function W.TabStrip(parent, items, onSelect)
   local bar = CreateFrame("Frame", nil, parent)
-  bar:SetHeight(34)
+  bar:SetSize(400, 30)
   bar.buttons, bar.items = {}, items
-  local rule = T.Line(bar, { 1, 1, 1 }, 0.12)
+  local rule = bar:CreateTexture(nil, "ARTWORK")
+  rule:SetColorTexture(0.906, 0.804, 0.137, 1)
+  rule:SetHeight(2)
   rule:SetPoint("BOTTOMLEFT"); rule:SetPoint("BOTTOMRIGHT")
   for _, item in ipairs(items) do
     local b = CreateFrame("Button", nil, bar)
     b.key = item.key
-    b.label = T.Text(b, "title", size or 17, { 0.78, 0.81, 0.86 })
-    b.label:SetPoint("BOTTOMLEFT", 2, 9)
+    b:SetHeight(26)
+    b.bg = b:CreateTexture(nil, "BACKGROUND")
+    b.bg:SetAllPoints()
+    T.Border(b, rgb("4A3A22"), 1)
+    b.label = T.Text(b, "body", 12, C.brume)
+    b.label:SetPoint("CENTER", 0, 0)
     b.label:SetText(item.label)
-    b.line = b:CreateTexture(nil, "ARTWORK")
-    b.line:SetHeight(2)
-    b.line:SetPoint("BOTTOMLEFT", 0, 0)
-    b.line:SetPoint("BOTTOMRIGHT", 0, 0)
-    b.line:SetColorTexture(C.teal[1], C.teal[2], C.teal[3], 1)
     b:SetScript("OnClick", function() bar:Select(item.key, true) end)
-    b:SetScript("OnEnter", function(self) if bar.selected ~= self.key then self.label:SetTextColor(1, 1, 1) end end)
-    b:SetScript("OnLeave", function(self) if bar.selected ~= self.key then self.label:SetTextColor(0.78, 0.81, 0.86) end end)
     bar.buttons[item.key] = b
   end
   function bar:Layout()
@@ -169,11 +263,11 @@ function W.Tabs(parent, items, onSelect, size)
         b:Hide()
       else
         b:Show()
-        local w = math.max(40, (b.label:GetStringWidth() or 60) + 6)
-        b:SetSize(w, 34)
+        local w = (b.label:GetStringWidth() or 60) + 34
+        b:SetWidth(w)
         b:ClearAllPoints()
-        b:SetPoint("BOTTOMLEFT", x, 0)
-        x = x + w + 22
+        b:SetPoint("BOTTOMLEFT", self, "BOTTOMLEFT", x, 2)
+        x = x + w + 2
       end
     end
   end
@@ -181,10 +275,23 @@ function W.Tabs(parent, items, onSelect, size)
     self.selected = key
     for k, b in pairs(self.buttons) do
       local on = (k == key)
-      b.line:SetShown(on)
-      if on then b.label:SetTextColor(1, 1, 1) else b.label:SetTextColor(0.78, 0.81, 0.86) end
+      b:SetHeight(on and 28 or 24)
+      if on then
+        T.Gradient(b.bg, rgb("34506F"), rgb("14233A"))
+        T.Border(b, C.bronzeHi, 1)
+        T.Color(b.label, rgb("FFF1C8"))
+      else
+        T.Gradient(b.bg, rgb("2B2217"), rgb("1A130B"))
+        T.Border(b, rgb("4A3A22"), 1)
+        T.Color(b.label, C.brume)
+      end
     end
     if onSelect then onSelect(key, user) end
+  end
+  function bar:SetLabel(key, text)
+    local b = self.buttons[key]
+    if b then b.label:SetText(text) end
+    self:Layout()
   end
   function bar:SetHidden(key, hidden)
     for _, item in ipairs(self.items) do
@@ -192,24 +299,19 @@ function W.Tabs(parent, items, onSelect, size)
     end
     self:Layout()
   end
-  function bar:SetLabel(key, text)
-    local b = self.buttons[key]
-    if b then b.label:SetText(text) end
-    self:Layout()
-  end
   bar:Layout()
   return bar
 end
 
--- Rangée de pastilles (« À venir 6 », « Passées 2 »).
+-- Rangée de pastilles (« 7 jours », « 30 jours », « Tout »).
 function W.Chips(parent, items, onSelect)
   local row = CreateFrame("Frame", nil, parent)
   -- Une largeur toujours définie : un cadre sans largeur n'affiche pas ses
   -- pastilles dans le client Forever (Layout la recalcule à chaque changement).
-  row:SetSize(60, 26)
+  row:SetSize(60, 24)
   row.buttons, row.items = {}, items
   for _, item in ipairs(items) do
-    local b = W.Button(row, item.label, "chip", 80, 26)
+    local b = W.Button(row, item.label, "chip", 80, 24)
     b:SetScript("OnClick", function() row:Select(item.key, true) end)
     row.buttons[item.key] = b
   end
@@ -252,13 +354,13 @@ end
 ---------------------------------------------------------------------------
 function W.Edit(parent, width, height, placeholder, maxLetters)
   local e = CreateFrame("EditBox", nil, parent)
-  e:SetSize(width or 160, height or 26)
+  e:SetSize(width or 160, height or 24)
   e:SetAutoFocus(false)
   T.SetFont(e, "body", 12)
   e:SetTextColor(C.ivory[1], C.ivory[2], C.ivory[3])
   e:SetTextInsets(8, 8, 0, 0)
   if maxLetters then e:SetMaxLetters(maxLetters) end
-  e.bg = T.Fill(e, C.sunk)
+  e.bg = T.Fill(e, C.field)
   T.Border(e, C.line2)
   e.placeholder = T.Text(e, "body", 12, C.muted)
   e.placeholder:SetPoint("LEFT", 8, 0)
@@ -279,6 +381,19 @@ function W.Edit(parent, width, height, placeholder, maxLetters)
   e:HookScript("OnTextChanged", refresh)
   function e:SetPlaceholder(t) self.placeholder:SetText(t or "") end
   W.linkTargets[#W.linkTargets + 1] = e
+  return e
+end
+
+-- Champ de recherche : la loupe et le texte gris, comme dans les fenêtres du jeu.
+function W.Search(parent, width, placeholder, maxLetters)
+  local e = W.Edit(parent, width, 24, placeholder, maxLetters)
+  e:SetTextInsets(26, 8, 0, 0)
+  e.placeholder:SetPoint("LEFT", 26, 0)
+  local icon = e:CreateTexture(nil, "OVERLAY")
+  icon:SetSize(13, 13)
+  icon:SetPoint("LEFT", 8, 0)
+  icon:SetTexture(T.Icon("search"))
+  icon:SetVertexColor(C.muted[1], C.muted[2], C.muted[3])
   return e
 end
 
@@ -306,7 +421,7 @@ W.HookLinks = hookLinks
 function W.CodeBox(parent, width, height)
   local holder = CreateFrame("Frame", nil, parent)
   holder:SetSize(width, height)
-  holder.bg = T.Fill(holder, { 0.02, 0.03, 0.075 })
+  holder.bg = T.Fill(holder, { 0, 0, 0 })
   T.Border(holder, C.line2)
   local sf = CreateFrame("ScrollFrame", nil, holder)
   sf:SetPoint("TOPLEFT", 8, -8)
@@ -318,7 +433,7 @@ function W.CodeBox(parent, width, height)
   e:SetWidth(width - 16)
   e:SetHeight(height - 16)
   T.SetFont(e, "body", 10)
-  e:SetTextColor(0.73, 0.76, 0.87)
+  e:SetTextColor(0.8, 0.77, 0.68)
   e:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
   sf:SetScrollChild(e)
   sf:EnableMouseWheel(true)
@@ -354,19 +469,19 @@ function W.Check(parent, label, onChange)
   b.box = CreateFrame("Frame", nil, b)
   b.box:SetSize(16, 16)
   b.box:SetPoint("LEFT")
-  T.Fill(b.box, C.sunk)
-  T.Border(b.box, C.line2)
+  T.Fill(b.box, rgb("14100C"))
+  T.Border(b.box, rgb("9A7A3A"))
   b.tick = b.box:CreateTexture(nil, "ARTWORK")
-  b.tick:SetSize(8, 8)
-  b.tick:SetPoint("CENTER")
-  b.tick:SetColorTexture(C.teal[1], C.teal[2], C.teal[3], 1)
-  b.label = T.Text(b, "body", 12, C.ivory)
-  b.label:SetPoint("LEFT", b.box, "RIGHT", 8, 0)
+  b.tick:SetSize(20, 20)
+  b.tick:SetPoint("CENTER", 0, 0)
+  b.tick:SetTexture(T.Icon("coche"))
+  b.tick:SetVertexColor(C.goldText[1], C.goldText[2], C.goldText[3])
+  b.label = T.Text(b, "body", 12, C.brume)
+  b.label:SetPoint("LEFT", b.box, "RIGHT", 7, 0)
   b.label:SetText(label or "")
   function b:SetChecked(on)
     self.checked = on and true or false
     self.tick:SetShown(self.checked)
-    T.Border(self.box, self.checked and C.tealBorder or C.line2)
   end
   function b:Fit()
     self:SetWidth(24 + (self.label:GetStringWidth() or 100))
@@ -378,6 +493,75 @@ function W.Check(parent, label, onChange)
   b:SetChecked(false)
   b:Fit()
   return b
+end
+
+---------------------------------------------------------------------------
+-- En-tête de section : barre brune à liseré doré, bouton « − » ou « + »
+---------------------------------------------------------------------------
+function W.Header(parent, width)
+  local h = CreateFrame("Button", nil, parent)
+  h:SetSize(width or 200, 24)
+  h.bg = h:CreateTexture(nil, "BACKGROUND")
+  h.bg:SetAllPoints()
+  T.Gradient(h.bg, C.headTop, C.headBottom)
+  T.Border(h, C.goldLine, 1)
+  h.label = T.Text(h, "body", 14, C.goldText)
+  h.label:SetPoint("LEFT", 10, 0)
+  h.count = T.Text(h, "body", 11, rgb("A8956A"))
+  h.count:SetPoint("LEFT", h.label, "RIGHT", 6, 0)
+  h.extra = T.Text(h, "body", 11, C.muted)
+  h.extra:SetPoint("RIGHT", -30, 0)
+  h.extra:SetJustifyH("RIGHT")
+  h.box = CreateFrame("Frame", nil, h)
+  h.box:SetSize(15, 13)
+  h.box:SetPoint("RIGHT", -7, 0)
+  T.Fill(h.box, rgb("150C05"))
+  T.Border(h.box, C.goldLine, 1)
+  h.minus = h.box:CreateTexture(nil, "ARTWORK")
+  h.minus:SetSize(9, 2)
+  h.minus:SetPoint("CENTER")
+  h.minus:SetColorTexture(C.goldText[1], C.goldText[2], C.goldText[3], 1)
+  h.plus = h.box:CreateTexture(nil, "ARTWORK")
+  h.plus:SetSize(2, 9)
+  h.plus:SetPoint("CENTER")
+  h.plus:SetColorTexture(C.goldText[1], C.goldText[2], C.goldText[3], 1)
+  h.open = true
+  h.plus:Hide()
+  function h:SetLabel(text, count)
+    self.label:SetText(text or "")
+    self.count:SetText(count and ("(" .. count .. ")") or "")
+  end
+  function h:SetExtra(text, c)
+    self.extra:SetText(text or "")
+    T.Color(self.extra, c or C.muted)
+  end
+  function h:SetOpen(open)
+    self.open = open and true or false
+    self.plus:SetShown(not self.open)
+  end
+  h:SetScript("OnClick", function(self)
+    if self.onToggle then self.onToggle(not self.open) end
+  end)
+  return h
+end
+
+-- Icône dans un cadre bronze, comme les icônes des fenêtres du jeu.
+function W.IconFrame(parent, size)
+  local box = CreateFrame("Frame", nil, parent)
+  box:SetSize(size, size)
+  box.bg = box:CreateTexture(nil, "BACKGROUND")
+  box.bg:SetAllPoints()
+  T.Gradient(box.bg, rgb("2D2418"), rgb("0C0907"))
+  T.Border(box, BLACK, 1)
+  T.InnerBorder(box, rgb("7D5F31"), 1, 1)
+  box.icon = box:CreateTexture(nil, "ARTWORK")
+  box.icon:SetPoint("TOPLEFT", 4, -4)
+  box.icon:SetPoint("BOTTOMRIGHT", -4, 4)
+  box.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+  function box:SetSelected(on)
+    T.InnerBorder(self, on and C.gold or rgb("7D5F31"), 1, 1)
+  end
+  return box
 end
 
 ---------------------------------------------------------------------------
@@ -396,17 +580,17 @@ function W.List(parent, opts)
   f.track = f:CreateTexture(nil, "ARTWORK")
   f.track:SetPoint("TOPRIGHT", -1, 0)
   f.track:SetPoint("BOTTOMRIGHT", -1, 0)
-  f.track:SetWidth(2)
-  f.track:SetColorTexture(1, 1, 1, 0.06)
+  f.track:SetWidth(6)
+  f.track:SetColorTexture(0, 0, 0, 0.75)
   f.thumb = f:CreateTexture(nil, "OVERLAY")
-  f.thumb:SetWidth(4)
-  f.thumb:SetColorTexture(C.line2[1] + 0.15, C.line2[2] + 0.15, C.line2[3] + 0.15, 1)
+  f.thumb:SetWidth(6)
+  f.thumb:SetColorTexture(C.bronzeHi[1], C.bronzeHi[2], C.bronzeHi[3], 1)
 
   for i = 1, visible do
     local row = CreateFrame("Button", nil, f)
     row:SetHeight(rh)
     row:SetPoint("TOPLEFT", 0, -(i - 1) * rh)
-    row:SetPoint("RIGHT", f, "RIGHT", -8, 0)
+    row:SetPoint("RIGHT", f, "RIGHT", -10, 0)
     row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     row.hl = row:CreateTexture(nil, "HIGHLIGHT")
     row.hl:SetAllPoints()
@@ -442,7 +626,7 @@ function W.List(parent, opts)
       local y = (h - th) * (self.offset / maxOffset)
       self.thumb:SetHeight(th)
       self.thumb:ClearAllPoints()
-      self.thumb:SetPoint("TOPRIGHT", 0, -y)
+      self.thumb:SetPoint("TOPRIGHT", -1, -y)
     else
       self.track:Hide(); self.thumb:Hide()
     end
@@ -470,6 +654,19 @@ function W.List(parent, opts)
   return f
 end
 
+-- Liste noire encadrée, comme celles des fenêtres du jeu (recettes, journal).
+function W.BlackList(parent, opts)
+  local box = CreateFrame("Frame", nil, parent)
+  box:SetSize(opts.width, opts.height)
+  T.Fill(box, C.sunk)
+  T.Border(box, rgb("2B241A"))
+  opts.width, opts.height = opts.width - 2, opts.height - 2
+  local list = W.List(box, opts)
+  list:SetPoint("TOPLEFT", 1, -1)
+  box.list = list
+  return box, list
+end
+
 ---------------------------------------------------------------------------
 -- Menu déroulant
 ---------------------------------------------------------------------------
@@ -485,7 +682,7 @@ local function buildMenu()
   menu:SetFrameStrata("FULLSCREEN_DIALOG")
   menu:SetClampedToScreen(true)
   T.Fill(menu, C.sunk)
-  T.Border(menu, C.gold, 0.8)
+  T.Border(menu, C.bronzeHi, 1)
   menu.buttons = {}
   menu:Hide()
   table.insert(UISpecialFrames, "DernierRempartMenu")
@@ -513,10 +710,10 @@ function W.OpenMenu(anchor, items, width)
       b.mark = b:CreateTexture(nil, "ARTWORK")
       b.mark:SetSize(6, 6)
       b.mark:SetPoint("LEFT", 9, 0)
-      b.mark:SetColorTexture(C.teal[1], C.teal[2], C.teal[3], 1)
+      b.mark:SetColorTexture(C.gold[1], C.gold[2], C.gold[3], 1)
       local hl = b:CreateTexture(nil, "HIGHLIGHT")
       hl:SetAllPoints()
-      hl:SetColorTexture(1, 1, 1, 0.08)
+      hl:SetColorTexture(1, 1, 1, 0.1)
       menu.buttons[i] = b
     end
     b:ClearAllPoints()
@@ -548,56 +745,98 @@ end
 function W.Dot(parent, size, c)
   local t = parent:CreateTexture(nil, "ARTWORK")
   t:SetSize(size or 8, size or 8)
-  if c then t:SetColorTexture(c[1], c[2], c[3], 1) end
+  t:SetTexture(T.Icon("dot"))
+  if c then t:SetVertexColor(c[1], c[2], c[3]) end
+  function t:SetColor(col) self:SetVertexColor(col[1], col[2], col[3]) end
   return t
 end
 
--- Pastille de statut (texte coloré dans un cadre fin).
+-- Plaque de statut (texte coloré dans un cadre fin).
 function W.Badge(parent)
   local f = CreateFrame("Frame", nil, parent)
   f:SetSize(40, 18)
   f.bg = T.Fill(f, C.sunk)
-  f.label = T.Text(f, "semi", 11)
+  f.label = T.Text(f, "body", 11)
   f.label:SetPoint("CENTER")
   function f:Set(text, c)
     self.label:SetText(text or "")
     T.Color(self.label, c or C.brume)
-    T.Border(self, c or C.line2, 0.55)
+    T.Border(self, c or C.line2, 0.6)
     self:SetWidth((self.label:GetStringWidth() or 40) + 16)
   end
   return f
 end
 
--- Barre de progression : fond creux, remplissage coloré. Largeur donnée d'avance.
-function W.Bar(parent, width, height)
+-- Pastille de compte : « Sorties à venir  3 ».
+function W.Pill(parent)
   local f = CreateFrame("Frame", nil, parent)
-  f:SetSize(width, height or 8)
-  f.barWidth = width
-  f.bg = T.Fill(f, C.sunk)
-  T.Border(f, C.line)
-  f.fill = f:CreateTexture(nil, "ARTWORK")
-  f.fill:SetPoint("TOPLEFT", 1, -1)
-  f.fill:SetPoint("BOTTOMLEFT", 1, 1)
-  function f:Set(ratio, color)
-    ratio = math.max(0, math.min(1, ratio or 0))
-    color = color or C.teal
-    self.fill:SetColorTexture(color[1], color[2], color[3], 1)
-    self.fill:SetWidth(math.max(0.01, (self.barWidth - 2) * ratio))
-    self.fill:SetShown(ratio > 0)
+  f:SetSize(120, 21)
+  f.bg = f:CreateTexture(nil, "BACKGROUND")
+  f.bg:SetAllPoints()
+  T.Gradient(f.bg, rgb("3A2D17"), rgb("1F160A"))
+  T.Border(f, rgb("5C4A2A"), 1)
+  f.label = T.Text(f, "body", 12, C.slateText)
+  f.label:SetPoint("LEFT", 12, 0)
+  f.value = T.Text(f, "body", 12, C.goldText)
+  function f:Set(label, value)
+    self.label:SetText(label or "")
+    self.value:SetText(tostring(value or ""))
+    local lw = self.label:GetStringWidth() or 60
+    self.value:ClearAllPoints()
+    self.value:SetPoint("LEFT", self.label, "LEFT", lw + 14, 0)
+    self:SetWidth(12 + lw + 14 + (self.value:GetStringWidth() or 10) + 12)
   end
   return f
 end
 
--- Petit chiffre sur fond creux avec sa légende (« 12 » « en ligne »).
+-- Barre à chiffre central, comme les barres des métiers et de la réputation :
+-- fond noir, remplissage en dégradé du sombre au clair. Largeur donnée d'avance.
+local FILL = {
+  gold = { rgb("5A3A0C"), rgb("F6D55A") },
+  red = { rgb("4A0A06"), rgb("F08A30") },
+  green = { rgb("052D0A"), rgb("3BC15A") },
+  blue = { rgb("0B1B3D"), rgb("7FB2FF") },
+}
+W.FILL = FILL
+
+function W.Bar(parent, width, height)
+  local f = CreateFrame("Frame", nil, parent)
+  f:SetSize(width, height or 18)
+  f.barWidth = width
+  f.bg = T.Fill(f, BLACK)
+  T.Border(f, rgb("6A5535"))
+  f.fill = f:CreateTexture(nil, "ARTWORK")
+  f.fill:SetPoint("TOPLEFT", 1, -1)
+  f.fill:SetPoint("BOTTOMLEFT", 1, 1)
+  f.text = T.Text(f, "body", 11, { 1, 1, 1 }, "OVERLAY")
+  f.text:SetPoint("CENTER", 0, 0)
+  f.text:SetJustifyH("CENTER")
+  function f:SetBarWidth(w)
+    self.barWidth = w
+    self:SetWidth(w)
+  end
+  -- ratio 0..1, kind : gold | red | green | blue, label : le chiffre au milieu
+  function f:Set(ratio, kind, label)
+    ratio = math.max(0, math.min(1, ratio or 0))
+    local fill = FILL[kind or "gold"] or FILL.gold
+    T.Gradient(self.fill, fill[1], fill[2], 1, true)
+    self.fill:SetWidth(math.max(0.01, (self.barWidth - 2) * ratio))
+    self.fill:SetShown(ratio > 0)
+    self.text:SetText(label or "")
+  end
+  return f
+end
+
+-- Petit chiffre sur fond noir avec sa légende (« 12 » « en ligne »).
 function W.Stat(parent, width)
   local f = CreateFrame("Frame", nil, parent)
   f:SetSize(width, 46)
   f.bg = T.Fill(f, C.sunk)
-  T.Border(f, C.line)
-  f.num = T.Text(f, "title", 20, C.ivory)
-  f.num:SetPoint("TOP", 0, -5)
+  T.Border(f, rgb("4C3D24"))
+  f.num = T.Text(f, "title", 17, C.ivory)
+  f.num:SetPoint("TOP", 0, -6)
   f.label = T.Text(f, "body", 11, C.muted)
-  f.label:SetPoint("BOTTOM", 0, 5)
+  f.label:SetPoint("BOTTOM", 0, 6)
   function f:Set(n, label, color)
     self.num:SetText(n)
     T.Color(self.num, color or C.ivory)
@@ -606,25 +845,47 @@ function W.Stat(parent, width)
   return f
 end
 
--- Compteur de rôle « 1/2 tanks » : sarcelle si plein, ambre s'il manque.
-function W.RoleNeed(parent)
-  local f = CreateFrame("Frame", nil, parent)
-  f:SetHeight(24)
-  f.bg = T.Fill(f, C.sunk)
-  f.icon = f:CreateTexture(nil, "ARTWORK")
-  f.icon:SetSize(14, 14)
-  f.icon:SetPoint("LEFT", 8, 0)
-  f.label = T.Text(f, "semi", 12)
-  f.label:SetPoint("LEFT", f.icon, "RIGHT", 6, 0)
-  function f:Set(role, have, need)
-    self.icon:SetTexture(T.Icon(T.ROLE_ICON[role]))
-    local full = have >= need
-    local c = full and C.teal or C.amber
-    self.icon:SetVertexColor(c[1], c[2], c[3])
-    T.Border(self, c, 0.55)
-    local word = DR.Util.ROLE_PLURAL[role]
-    self.label:SetText(T.Hex(c) .. have .. "|r" .. T.Hex(C.muted) .. "/" .. need .. "|r " .. word)
-    self:SetWidth(36 + (self.label:GetStringWidth() or 60))
+---------------------------------------------------------------------------
+-- La fiche marine : l'étendard du Dernier Rempart dans la fenêtre du jeu
+---------------------------------------------------------------------------
+local function corner(f, c)
+  local lines = {
+    { 34, 1, 0, 0 }, { 1, 34, 0, 0 }, { 17, 1, 6, -6 }, { 1, 17, 6, -6 },
+  }
+  for _, l in ipairs(lines) do
+    local t = f:CreateTexture(nil, "BACKGROUND", nil, 2)
+    t:SetColorTexture(c[1], c[2], c[3], 0.3)
+    t:SetSize(l[1], l[2])
+    t:SetPoint("TOPRIGHT", -8 - l[3], -8 + (-l[4]))
   end
+end
+
+-- corner : un petit ornement doré au coin haut droit, comme la fiche du Codex des
+-- mascottes. À éviter quand des boutons occupent ce coin.
+function W.Navy(parent, withCorner)
+  local f = CreateFrame("Frame", nil, parent)
+  f.bg = f:CreateTexture(nil, "BACKGROUND")
+  f.bg:SetAllPoints()
+  T.Gradient(f.bg, C.navyTop, C.navyBottom)
+  local mid = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+  mid:SetPoint("TOPLEFT", 1, -1)
+  mid:SetPoint("BOTTOMRIGHT", -1, 1)
+  T.Gradient(mid, C.navyMid, C.navyBottom, 0.9)
+  T.Border(f, BLACK, 1)
+  T.InnerBorder(f, C.navyLine, 1, 1)
+  f.mark = f:CreateTexture(nil, "BACKGROUND", nil, 3)
+  f.mark:SetSize(190, 190)
+  f.mark:SetPoint("BOTTOMRIGHT", -26, 16)
+  f.mark:SetTexture(T.Icon("tour"))
+  f.mark:SetVertexColor(1, 1, 1, 0.07)
+  if withCorner then corner(f, C.goldPale) end
+  return f
+end
+
+-- Zone noire du journal : fond noir, filet brun.
+function W.Inset(parent)
+  local f = CreateFrame("Frame", nil, parent)
+  T.Fill(f, BLACK)
+  T.Border(f, rgb("4C3D24"))
   return f
 end

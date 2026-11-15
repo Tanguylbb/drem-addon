@@ -223,7 +223,8 @@ end
 ---------------------------------------------------------------------------
 local HELP = {
   "/rempart : ouvrir ou fermer la fenêtre",
-  "/rempart sorties | artisans | carte | effort | banque | persos | pont : ouvrir un onglet",
+  "/rempart sorties | artisans | carte | effort | officiers : ouvrir un onglet (banque = le journal de la banque)",
+  "/rempart fiche : relire ton perso et tes métiers",
   "/rempart synchro : demander les dernières données à la guilde",
   "/rempart position : partager ou non ta position avec la guilde",
   "/rempart banque test : ce que le jeu rend du journal de la banque de guilde (banque ouverte)",
@@ -236,8 +237,12 @@ function DR:HandleSlash(input)
   local cmd = (input or ""):lower():match("^%s*(%S*)") or ""
   if cmd == "" then
     if DR.UI and DR.UI.Toggle then DR.UI:Toggle() end
-  elseif cmd == "sorties" or cmd == "artisans" or cmd == "carte" or cmd == "effort" or cmd == "persos" or cmd == "pont" then
+  elseif cmd == "sorties" or cmd == "artisans" or cmd == "carte" or cmd == "effort" or cmd == "officiers"
+    or cmd == "persos" or cmd == "pont" then
     if DR.UI and DR.UI.Open then DR.UI:Open(cmd) end
+  elseif cmd == "fiche" then
+    if DR.Profile then DR.Profile:Scan("manuel") end
+    DR:Print("fiche relue. Les recettes, elles, se lisent quand tu ouvres un métier.")
   elseif cmd == "banque" then
     if (input or ""):lower():find("test", 1, true) or (input or ""):lower():find("diag", 1, true) then
       for _, line in ipairs(DR.Bank:Diagnose()) do DR:Print(line) end

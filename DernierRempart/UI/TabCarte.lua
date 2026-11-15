@@ -1,5 +1,6 @@
 -- Onglet Carte : la carte de la zone avec les membres de la guilde qui
--- partagent leur position, et la liste de qui est en ligne et où.
+-- partagent leur position. À droite, une phrase au lieu de trois compteurs, et
+-- la liste de ceux qu'on ne voit pas sur la carte, avec la raison.
 
 local _, DR = ...
 local UI, T, W, Util = DR.UI, DR.Theme, DR.Widgets, DR.Util
@@ -8,29 +9,32 @@ local GuildMap = DR.GuildMap
 
 local Tab = {}
 UI:RegisterTab("carte", "Carte", Tab)
+Tab.icon = "tab_carte"
+Tab.tip = "Où sont les membres de la guilde qui partagent leur position."
 
-local MAP_W, MAP_H = 540, 330
+local MAP_W, MAP_H = 548, 360
+local SHORT = 6 -- combien de lignes avant « Voir les autres »
 
 function Tab:Create(f, width, height)
   self.f = f
-  self.zone = T.Text(f, "title", 20, C.goldText)
-  self.zone:SetPoint("TOPLEFT", 0, -4)
-  self.up = W.Button(f, "Monter", "ghost", 80, 26)
+  self.zone = T.Text(f, "title", 18, C.goldText)
+  self.zone:SetPoint("TOPLEFT", 2, -5)
+  self.up = W.Button(f, "Monter", "sec", 80, 24)
   self.up:SetPoint("TOPLEFT", MAP_W - 80, 0)
   self.up:SetScript("OnClick", function()
     local info = self.mapID and C_Map.GetMapInfo(self.mapID)
     if info and info.parentMapID and info.parentMapID > 0 then self:Show(info.parentMapID) end
   end)
   W.Tip(self.up, "Voir la carte au-dessus (continent)")
-  self.here = W.Button(f, "Ma zone", "ghost", 80, 26)
+  self.here = W.Button(f, "Ma zone", "sec", 80, 24)
   self.here:SetPoint("RIGHT", self.up, "LEFT", -6, 0)
   self.here:SetScript("OnClick", function() self:Show(nil) end)
 
   local canvas = CreateFrame("Frame", nil, f)
   canvas:SetPoint("TOPLEFT", 0, -34)
   canvas:SetSize(MAP_W, MAP_H)
-  T.Fill(canvas, C.sunk)
-  T.Border(canvas, C.line)
+  T.Fill(canvas, { 0, 0, 0 })
+  T.Border(canvas, C.bronze, 1, 2)
   if canvas.SetClipsChildren then canvas:SetClipsChildren(true) end
   self.canvas = canvas
   self.tiles, self.pins = {}, {}
@@ -43,30 +47,17 @@ function Tab:Create(f, width, height)
   self.alone:SetFrameLevel(canvas:GetFrameLevel() + 8)
   self.alone:Set("Personne d'autre ne partage sa position dans cette zone", C.brume)
 
-  -- Légende et rappel.
-  local legend = {
-    { C.teal, "Partage sa position" }, { C.muted, "Ailleurs" }, { C.amber, "Pas d'add-on" },
-  }
-  local lx = 0
-  for _, item in ipairs(legend) do
-    local dot = W.Dot(f, 8, item[1])
-    dot:SetPoint("TOPLEFT", lx, -34 - MAP_H - 14)
-    local label = T.Text(f, "body", 12, C.brume)
-    label:SetPoint("LEFT", dot, "RIGHT", 6, 0)
-    label:SetText(item[2])
-    lx = lx + 22 + (label:GetStringWidth() or 90)
-  end
   local note = T.Para(f, "body", 11, C.muted, MAP_W)
-  note:SetPoint("TOPLEFT", 0, -34 - MAP_H - 30)
+  note:SetPoint("TOPLEFT", 2, -34 - MAP_H - 10)
   note:SetText("Les positions n'arrivent que quand quelqu'un regarde une carte, en quelques secondes, et jamais en donjon, en raid ni en champ de bataille.")
 
   self.pinsCheck = W.Check(f, "Montrer la guilde sur la carte du monde", function(on)
     DR.db.settings.showMapPins = on
     DR:Emit("SETTINGS_CHANGED", "showMapPins")
   end)
-  self.pinsCheck:SetPoint("TOPLEFT", 0, -34 - MAP_H - 70)
-  local world = W.Button(f, "Ouvrir la carte du monde", "slate", 200, 28)
-  world:SetPoint("TOPRIGHT", canvas, "BOTTOMRIGHT", 0, -66)
+  self.pinsCheck:SetPoint("TOPLEFT", 2, -34 - MAP_H - 46)
+  local world = W.Button(f, "Ouvrir la carte du monde", "sec", 200, 26)
+  world:SetPoint("TOPRIGHT", canvas, "BOTTOMRIGHT", 0, -42)
   world:SetScript("OnClick", function()
     -- Ouvrir un panneau de Blizzard depuis un add-on est refusé en combat et
     -- à la manette : on le dit au lieu d'essayer.
@@ -80,23 +71,24 @@ function Tab:Create(f, width, height)
   end)
 
   -- Qui est là, et pourquoi on ne le voit pas.
-  local rx = MAP_W + 16
+  local rx = MAP_W + 12
   local rw = width - rx
-  local right = T.Card(f)
+  local right = W.Navy(f, true)
   right:SetPoint("TOPLEFT", rx, 0)
   right:SetSize(rw, height)
-  local rt = T.Text(right, "caps", 11, C.muted)
-  rt:SetPoint("TOPLEFT", 14, -14)
-  rt:SetText("EN LIGNE MAINTENANT")
-  local sw = math.floor((rw - 28 - 16) / 3)
-  self.stats = {}
-  for i = 1, 3 do
-    local s = W.Stat(right, sw)
-    s:SetPoint("TOPLEFT", 14 + (i - 1) * (sw + 8), -34)
-    self.stats[i] = s
-  end
-  self.members = W.List(right, {
-    width = rw - 2, height = height - 92 - 48, rowHeight = 30,
+  self.right = right
+  self.phrase = T.Text(right, "title", 15, { 1, 1, 1 })
+  self.phrase:SetPoint("TOPLEFT", 14, -14)
+  self.phrase:SetPoint("RIGHT", -14, 0)
+  self.addons = T.Text(right, "body", 11, C.brume)
+  self.addons:SetPoint("TOPLEFT", self.phrase, "BOTTOMLEFT", 0, -5)
+
+  self.listHeader = W.Header(right, rw - 28)
+  self.listHeader:SetPoint("TOPLEFT", 14, -62)
+  self.listHeader:SetLabel("Pas sur la carte", 0)
+  self.listH = 30 * 12 -- la place pour tout déplier
+  local box, list = W.BlackList(right, {
+    width = rw - 28, height = self.listH + 2, rowHeight = 30,
     create = function(row)
       row.sep = row:CreateTexture(nil, "BACKGROUND")
       row.sep:SetPoint("TOPLEFT", 0, 0)
@@ -104,19 +96,18 @@ function Tab:Create(f, width, height)
       row.sep:SetHeight(1)
       row.sep:SetColorTexture(C.rule[1], C.rule[2], C.rule[3], 1)
       row.dot = W.Dot(row, 8)
-      row.dot:SetPoint("LEFT", 14, 0)
-      row.name = T.Text(row, "semi", 12)
-      row.name:SetPoint("LEFT", 30, 0)
-      row.name:SetWidth(138)
+      row.dot:SetPoint("LEFT", 10, 0)
+      row.name = T.Text(row, "body", 12)
+      row.name:SetPoint("LEFT", 26, 0)
+      row.name:SetWidth(112)
       row.why = T.Text(row, "body", 11, C.muted)
-      row.why:SetPoint("LEFT", 172, 0)
-      row.why:SetPoint("RIGHT", -10, 0)
+      row.why:SetPoint("LEFT", 142, 0)
+      row.why:SetPoint("RIGHT", -8, 0)
       row.why:SetJustifyH("RIGHT")
     end,
     update = function(row, m)
-      local col = m.color
-      row.dot:SetColorTexture(col[1], col[2], col[3], 1)
-      row.name:SetText(Util.ClassName(m.name, m.class))
+      row.dot:SetColor(m.color)
+      row.name:SetText(T.Hex(C.goldText) .. Util.ClassName(m.name, m.class) .. "|r")
       row.why:SetText(m.text)
       T.Color(row.why, m.textColor)
     end,
@@ -128,17 +119,25 @@ function Tab:Create(f, width, height)
       end
     end,
   })
-  self.members:SetPoint("TOPLEFT", 1, -92)
+  box:SetPoint("TOPLEFT", 14, -92)
+  self.members, self.membersBox = list, box
+  self.moreBtn = W.Button(right, "Voir les autres", "sec", rw - 28, 22)
+  self.moreBtn:SetPoint("TOPLEFT", 14, -92 - 30 * SHORT - 8)
+  self.moreBtn:SetScript("OnClick", function()
+    self.showAll = not self.showAll
+    self:Refresh()
+  end)
+
   local foot = CreateFrame("Frame", nil, right)
   foot:SetPoint("BOTTOMLEFT", 1, 1)
   foot:SetPoint("BOTTOMRIGHT", -1, 1)
-  foot:SetHeight(46)
-  local frule = T.Line(foot, C.line, 1)
+  foot:SetHeight(44)
+  local frule = T.Line(foot, C.navyLine, 1)
   frule:SetPoint("TOPLEFT"); frule:SetPoint("TOPRIGHT")
   local fl = T.Text(foot, "body", 12, C.brume)
   fl:SetPoint("LEFT", 14, 0)
   fl:SetText("Partager ma position")
-  self.share = W.Button(foot, "Oui", "toggle", 64, 26)
+  self.share = W.Button(foot, "Oui", "toggle", 64, 24)
   self.share:SetPoint("RIGHT", -12, 0)
   self.share:SetScript("OnClick", function()
     DR.db.settings.sharePosition = not DR.db.settings.sharePosition
@@ -264,7 +263,7 @@ local function describe(self, m, positions)
   local pos = positions[m.name]
   if reason == "pos" and pos then
     local here = self.mapID and GuildMap.ToMap(pos, self.mapID)
-    if here then return "sur la carte", C.teal, C.teal, 1, pos end
+    if here then return "sur la carte", C.green, C.green, 1, pos end
     return GuildMap.MapName(pos.m), C.muted, C.muted, 2, pos
   end
   if reason == "instance" then return "en donjon", C.muted, C.muted, 2 end
@@ -286,23 +285,43 @@ function Tab:Refresh()
   end
   self:RefreshPins()
   local positions = GuildMap:Positions()
-  local list, shared, withAddon = {}, 0, 0
+  local online, onMap, withAddon, off = 0, 0, 0, {}
   for _, m in ipairs(DR.Guild:OnlineMembers()) do
     local text, textColor, dotColor, group, pos = describe(self, m, positions)
+    online = online + 1
     if DR.Guild:HasAddon(m.name) then withAddon = withAddon + 1 end
-    if pos then shared = shared + 1 end
-    list[#list + 1] = { name = m.name, class = m.class, zone = m.zone, pos = pos, text = text,
-      textColor = textColor, color = dotColor, group = group }
+    if group == 1 then
+      onMap = onMap + 1
+    else
+      off[#off + 1] = { name = m.name, class = m.class, zone = m.zone, pos = pos, text = text,
+        textColor = textColor, color = dotColor, group = group }
+    end
   end
-  table.sort(list, function(a, b)
+  table.sort(off, function(a, b)
     if a.group ~= b.group then return a.group < b.group end
     return a.name < b.name
   end)
-  self.stats[1]:Set(#list, "en ligne")
-  self.stats[2]:Set(withAddon, "avec l'add-on", C.teal)
-  self.stats[3]:Set(shared, "partage", C.goldText)
-  self.members:SetEmptyText(IsInGuild() and "Personne d'autre en ligne." or "Pas de guilde.")
-  self.members:SetItems(list, true)
+  self.phrase:SetText(online .. " en ligne · " .. onMap .. " sur la carte")
+  self.addons:SetText(withAddon .. " ont l'add-on")
+  self.listHeader:SetLabel("Pas sur la carte", #off)
+
+  -- Les premiers, puis « Voir les autres » : la raison n'est donnée qu'à ceux qu'on ne voit pas.
+  local shown = off
+  if not self.showAll and #off > SHORT then
+    shown = {}
+    for i = 1, SHORT do shown[i] = off[i] end
+  end
+  self.members:SetEmptyText(IsInGuild() and (online == 0 and "Personne d'autre en ligne." or "Tout le monde est sur la carte.") or "Pas de guilde.")
+  self.members:SetItems(shown, true)
+  -- La boîte noire épouse les lignes montrées ; le bouton se met juste dessous.
+  local rows = math.max(1, math.min(#shown, 12))
+  self.membersBox:SetHeight(rows * 30 + 2)
+  self.moreBtn:ClearAllPoints()
+  self.moreBtn:SetPoint("TOPLEFT", 14, -92 - rows * 30 - 10)
+  self.moreBtn:SetShown(#off > SHORT)
+  if #off > SHORT then
+    self.moreBtn:SetLabel(self.showAll and "Voir moins" or ("Voir les " .. (#off - SHORT) .. " autres"))
+  end
   -- Carte vide : on le dit.
   local others = 0
   if self.mapID and self.noMap and not self.noMap:IsShown() then

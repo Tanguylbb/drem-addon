@@ -69,12 +69,22 @@ return function(H)
       H.eq(seen.noAddon, 2, "Pikvol et Galdrin n'ont pas l'add-on")
     end)
 
-    H.test("Sorties : la ligne de synchro et le bouton « Redemander » s'affichent", function()
+    H.test("Sorties : la bande ambre n'apparaît que si la synchro prend du retard", function()
       A.DR.db.settings.debug = true
       A:Slash("sorties")
       local tab = A.DR.UI.tabs.sorties
       tab:Refresh()
-      H.ok(tab.syncText:GetText():find("À jour", 1, true), tab.syncText:GetText())
+      A.DR.UI:RefreshHeader()
+      H.ok(A.DR.UI.freshText:GetText():find("À jour", 1, true), A.DR.UI.freshText:GetText())
+      H.ok(not tab.strip:IsShown(), "pas de bande quand tout va bien")
+      -- Plus de réponse depuis longtemps : la bande et le point ambre apparaissent.
+      A.DR.Sync.lastReply = nil
+      A.DR.Sync.lastRequest = A.DR.Util.Now() - 3600
+      tab:Refresh()
+      A.DR.UI:RefreshHeader()
+      H.ok(tab.strip:IsShown(), "bande ambre")
+      H.ok(tab.syncText:GetText():find("Pas de réponse", 1, true), tab.syncText:GetText())
+      H.ok(A.DR.UI.freshText:GetText():find("Pas de réponse", 1, true), A.DR.UI.freshText:GetText())
       local before = #A.sent
       tab.syncBtn:Click()
       net:Advance(3)
@@ -125,9 +135,9 @@ return function(H)
       A:Slash("carte")
       local tab = A.DR.UI.tabs.carte
       tab:Refresh()
-      H.eq(tab.stats[1].num:GetText(), "2", "en ligne")
-      H.eq(tab.stats[2].num:GetText(), "2", "avec l'add-on")
-      H.ok(#tab.members.items == 2)
+      H.ok(tab.phrase:GetText():find("2 en ligne", 1, true), tab.phrase:GetText())
+      H.eq(tab.addons:GetText(), "2 ont l'add-on")
+      H.ok(#tab.members.items <= 2, "seuls ceux qu'on ne voit pas sur la carte sont listés")
       H.eq(chatHas(A, "Erreur"), false)
     end)
   end
@@ -228,39 +238,52 @@ return function(H)
     H.test("Onglet Artisans : l'arbre, les dossiers, le +1 et la fiche", function()
       B:Slash("artisans")
       local tab = B.DR.UI.tabs.artisans
-      tab:RefreshQui()
+      tab:RefreshRecipes()
       H.eq(tab.prof, 171, "le métier est choisi d'office")
       local cats, recs = 0, 0
-      for _, it in ipairs(tab.quiItems) do if it.kind == "cat" then cats = cats + 1 else recs = recs + 1 end end
+      for _, it in ipairs(tab.items) do if it.kind == "cat" then cats = cats + 1 else recs = recs + 1 end end
       H.eq(cats, 3); H.eq(recs, 4)
       -- Un clic sur un dossier le ferme.
-      tab.recipes.opts.click(tab.quiItems[1])
+      tab.recipes.opts.click(tab.items[1])
       recs = 0
-      for _, it in ipairs(tab.quiItems) do if it.kind == "rec" then recs = recs + 1 end end
+      for _, it in ipairs(tab.items) do if it.kind == "rec" then recs = recs + 1 end end
       H.eq(recs, 3, "Élixirs fermé")
-      tab.modeChips:Select("nobody", true)
-      H.eq(#tab.quiEntries, 2)
+      tab.filter = "nobody"
+      tab:RefreshRecipes()
+      H.eq(#tab.entries, 2)
       tab.selectedRecipe = 17635
-      tab:RefreshQuiDetail()
-      H.ok(tab.quiDetail.lost:IsShown() and not tab.quiDetail.known:IsShown(), "fiche « personne ne sait »")
-      tab.quiDetail.want:Click()
+      tab:RefreshFiche()
+      H.ok(tab.fiche.lost:IsShown() and not tab.fiche.known:IsShown(), "fiche « personne ne sait »")
+      tab.fiche.want:Click()
       net:Advance(5)
       H.ok(B.DR.Crafts:WantMap()[17635].mine, "mon +1")
-      H.eq(tab.quiDetail.want.label:GetText(), "Retirer mon +1")
-      tab.modeChips:Select("all", true)
+      H.eq(tab.fiche.want.label:GetText(), "Retirer mon +1")
+      tab.filter = "all"
       tab.selectedRecipe = 3451
-      tab:RefreshQuiDetail()
-      H.ok(tab.quiDetail.known:IsShown(), "fiche avec artisans")
-      tab.chips:Select("recherches", true)
-      tab.chips:Select("qui", true)
+      tab:RefreshRecipes()
+      H.ok(tab.fiche.known:IsShown(), "fiche avec artisans")
+      tab:SetView("buy")
+      H.eq(tab.fiche.order and tab.fiche.order.sp, 17635, "la recette à acheter est choisie d'office")
+      tab:SetView("recipes")
       H.eq(chatHas(B, "Erreur"), false)
     end)
 
-    H.test("Onglet Mes persos : métiers lus et à ouvrir", function()
+    H.test("Artisans : le bandeau dit quel métier ouvrir, sinon le catalogue", function()
       A:Slash("persos")
-      local tab = A.DR.UI.tabs.persos
+      H.eq(A.DR.UI.current, "artisans", "l'ancien nom mène aux artisans")
+      local tab = A.DR.UI.tabs.artisans
+      tab.dismissed = false
       tab:Refresh()
-      H.ok(tab.progress:GetText():find("1 sur 1", 1, true), tab.progress:GetText())
+      H.ok(tab.infoRow.text:GetText():find("Catalogue", 1, true), tab.infoRow.text:GetText())
+      -- Un métier pas encore ouvert : le bandeau le dit.
+      local me = A.DR.db.myChars[A.DR.playerName]
+      table.insert(me.p, { id = 164, nm = "Forge", lv = 1, mx = 75 })
+      tab:Refresh()
+      H.ok(tab.infoRow.text:GetText():find("Forge", 1, true), tab.infoRow.text:GetText())
+      tab.infoRow.btn:Click()
+      H.ok(tab.dismissed, "« Compris » ferme le bandeau")
+      table.remove(me.p)
+      tab.dismissed = false
       H.eq(chatHas(A, "Erreur"), false)
     end)
   end
@@ -453,7 +476,10 @@ return function(H)
       local tab = A.DR.UI.tabs.effort
       tab:Refresh()
       H.ok(tab.bankText:GetText():find("Banque de guilde lue", 1, true), tab.bankText:GetText())
+      H.ok(tab.fiche.body:IsShown(), "la fiche de l'objectif est là")
+      tab:SetView("journal")
       H.ok(#tab.moves.items >= 3, "les mouvements sont listés")
+      tab:SetView("goals")
       tab.newBtn:Click()
       H.ok(tab.form:IsShown(), "formulaire ouvert")
       tab.form.t:SetText("Tabards de guilde")
@@ -467,8 +493,8 @@ return function(H)
       tab.declare.amt:SetText("1 po")
       tab.declare.save:Click()
       H.ok(not tab.declare:IsShown())
-      tab.chips:Select("closed", true)
-      tab.chips:Select("open", true)
+      tab.strip:Select("journal", true)
+      tab.strip:Select("goals", true)
       H.eq(chatHas(A, "Erreur"), false, "aucune erreur")
     end)
 
@@ -492,11 +518,12 @@ return function(H)
       E.snap = nil
     end)
 
-    H.test("Onglet Banque : le journal lu, membre par membre", function()
+    H.test("Journal de la banque (dans l'effort de guerre) : le journal lu, membre par membre", function()
       A.DR.db.settings.debug = true
       A:Slash("banque")
-      H.eq(A.DR.UI.current, "banque")
-      local tab = A.DR.UI.tabs.banque
+      H.eq(A.DR.UI.current, "effort")
+      local tab = A.DR.UI.tabs.effort
+      H.eq(tab.view, "journal")
       tab:Refresh()
       H.ok(#tab.moves.items >= 3, "les mouvements sont listés, même hors objectif")
       H.ok(#tab.members.items >= 2, "les membres aussi")
@@ -614,30 +641,33 @@ return function(H)
     end)
 
     H.test("Les pastilles ont une largeur : sans elle le client Forever ne les affiche pas", function()
-      A:Slash("artisans")
-      local arts = A.DR.UI.tabs.artisans
-      H.ok(arts.chips:GetWidth() > 100, "pastilles de l'onglet Artisans")
-      H.ok(arts.modeChips:GetWidth() > 100)
       A:Slash("effort")
       H.ok(A.DR.UI.tabs.effort.chips:GetWidth() > 60)
-      H.ok(A.DR.UI.tabs.effort.visChips:GetWidth() > 60)
+      A:Slash("officiers")
+      H.ok(A.DR.UI.tabs.officiers.visChips:GetWidth() > 60)
     end)
 
-    H.test("Navigation : de la liste d'achat on revient à la liste", function()
+    H.test("Navigation : de « À acheter » et de « Mes demandes » on revient aux recettes", function()
       A:Slash("artisans")
       local arts = A.DR.UI.tabs.artisans
-      arts.chips:Select("recherches", true)
-      H.eq(arts.view, "recherches")
-      arts.backFromWishes:Click()
-      H.eq(arts.view, "qui")
-      arts.chips:Select("commandes", true)
-      arts.backFromOrders:Click()
-      H.eq(arts.view, "qui")
+      arts:SetView("buy")
+      H.eq(arts.view, "buy")
+      arts.infoRow.btn:Click()
+      H.eq(arts.view, "recipes", "le bouton Retour ramène aux recettes")
+      arts.ordersBtn:Click()
+      H.eq(arts.view, "orders")
+      arts.ordersBtn:Click()
+      H.eq(arts.view, "recipes", "un second clic referme la vue")
+      arts.buyBtn:Click()
+      H.eq(arts.view, "buy")
+      arts.allBtn.click:Click()
+      H.eq(arts.view, "recipes", "un clic sur un métier ramène aux recettes")
     end)
 
     H.test("Onglet Pont : l'état du relais s'affiche", function()
       A:Slash("pont")
-      local tab = A.DR.UI.tabs.pont
+      H.eq(A.DR.UI.current, "officiers")
+      local tab = A.DR.UI.tabs.officiers
       tab:Refresh()
       H.ok(tab.relayText:GetText():find("Relais", 1, true), tab.relayText:GetText())
       H.ok(tab.boxes[1].when:GetText():find("Envoyé", 1, true), tab.boxes[1].when:GetText())

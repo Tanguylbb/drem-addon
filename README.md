@@ -4,72 +4,75 @@ Add-on World of Warcraft: Forever de la guilde **Dernier Rempart**, relié au
 site [dernier-rempart.eu](https://dernier-rempart.eu). Il remplace les add-ons
 de raid tout faits : les sorties, les inscriptions, les artisans et la fiche de
 chaque perso sont les mêmes en jeu et sur le site, sans rien taper deux fois.
-Il reprend la charte des maquettes v2 du site (fond Nuit, titres dorés en
-Marcellus, texte en Open Sans, Sarcelle quand c'est plein, Ambre quand il
-manque du monde).
+Il reprend le style des fenêtres du jeu (cuir brun, cadre bronze, noms dorés,
+bouton rouge pour l'action principale) et n'y met que la touche du Dernier
+Rempart : la tour dans le médaillon, une fiche sur fond marine, le nom en
+Marcellus dans la barre de titre. Vert quand c'est plein, ambre quand il manque
+du monde, rouge quand c'est en retard.
 
 ## Ce qu'il fait
 
-**Sorties** — le calendrier des raids, donjons et soirées sur 60 jours. On
-s'inscrit en un clic (Présent, Peut-être, Remplaçant, Absent) avec son perso,
-son rôle et un petit mot. Les compteurs tanks, soins et DPS montrent ce qui
-manque. Les officiers créent, modifient, ferment ou annulent les sorties en
-jeu ; celles du site arrivent par le Pont.
+Quatre onglets d'icônes sur le bord droit de la fenêtre (Sorties, Artisans,
+Carte, Effort de guerre), et un cinquième, **Officiers**, que seuls les
+officiers voient. Une pastille orange sur un onglet dit qu'il y a quelque chose
+à faire (une sortie sans réponse, une commande qui attend ton accord, un don à
+classer). En bas de la fenêtre, un point de couleur dit si la synchro avec la
+guilde est à jour ; l'infobulle donne le détail.
 
-**Sorties** (suite) — une ligne dit où en est la synchro (« À jour : dernière
-réponse de … ») et un bouton « Redemander à la guilde » la relance sans
-commande. Pour chaque sortie : combien ont répondu, combien n'ont pas répondu,
-combien n'ont pas l'add-on (à relancer sur Discord).
+**Sorties** — le calendrier des raids, donjons et soirées sur 60 jours : la
+liste à gauche (avec une recherche), la fiche sur fond marine à droite. La
+réponse vient d'abord : « Présent » est le bouton rouge, puis Peut-être,
+Remplaçant, Absent. Le perso et le rôle sont déjà choisis ; « Modifier » ouvre
+leur choix et le petit mot, et le rôle choisi est proposé la fois suivante.
+Trois barres montrent ce qui manque (tanks, soins, DPS). Les officiers créent,
+modifient, ferment ou annulent les sorties en jeu ; celles du site arrivent par
+le Pont. Pour eux seulement : combien ont répondu, combien n'ont pas répondu,
+combien n'ont pas l'add-on, et « Relancer » (qui chuchoter). Une bande ambre
+« Redemander » n'apparaît que si la guilde ne répond plus.
 
 **Artisans** — chaque artisan ouvre sa fenêtre de métier une fois : ses
-recettes sont lues et partagées. L'onglet montre **toute la liste d'un métier,
-rangée par type de craft** (Sacs, Robes…) en dossiers qu'on ouvre et ferme,
-y compris les recettes que personne n'a apprises. Filtres « Tout », « Il me
-manque », « Personne ne l'a ». Sur une recette que personne ne sait faire, un
-**+1** dit « je voudrais que la guilde l'achète » : la fiche montre qui la
-veut, où la trouver (renseigné par les membres) et qui pourrait l'apprendre.
-Quand quelqu'un sait la faire, on le voit en ligne et on lui demande en un clic
-(demandée, acceptée, faite). La liste « Recettes recherchées » est la liste
-d'achat des officiers, rangée par nombre de +1.
+recettes sont lues et partagées. Une seule vue : les métiers en icônes, une
+recherche, une case « Il me manque », et **toute la liste du métier rangée par
+type de craft** (Sacs, Robes…) en dossiers qu'on ouvre et ferme, y compris les
+recettes que personne n'a apprises (« Personne », avec un **+1** : « je voudrais
+que la guilde l'achète »). La fiche montre qui sait la faire (en ligne ou non) et
+permet de lui demander en un clic, ou, si personne ne la sait, qui la veut, où la
+trouver (renseigné par les membres) et qui pourrait l'apprendre. Deux boutons à
+droite : **À acheter** (les recettes les plus demandées d'abord) et **Mes
+demandes** (les commandes de fabrication : demandée, acceptée, faite). Un
+bandeau dit quels métiers il reste à ouvrir pour partager leurs recettes.
 
 **Effort de guerre** — les officiers fixent des objectifs (une somme d'or, ou
 des objets pour un raid) avec une date. Quand un membre ouvre la **banque de
 guilde**, l'add-on lit son journal : les dépôts se rattachent tout seuls aux
-objectifs, sans rien déclarer. Un dépôt qui hésite entre deux objectifs est
-« à classer » par un officier. Les retraits ne comptent pas. Un don qui ne
-passe pas par la banque se déclare à la main. Les officiers choisissent si
-tout le monde voit les noms et les montants, ou seulement les totaux.
+objectifs, sans rien déclarer. À gauche, une barre par objectif (or en cours,
+rouge en retard, vert atteint) ; à droite, la fiche de l'objectif choisi, ta
+part et les derniers dons. « Déclarer un don » ne sert que pour un don qui ne
+passe pas par la banque. Le bouton **Journal de la banque** montre tout ce qui a
+été lu, membre par membre et mouvement par mouvement ; un dépôt qui hésite entre
+deux objectifs est « à classer » par un officier. Les retraits ne comptent pas.
 Le journal de la banque se lit seulement banque ouverte et ne garde que les
 derniers mouvements : plus il y a de membres qui l'ouvrent, moins il en manque.
-`/rempart banque` dit ce que le jeu rend.
 
-**Carte** — où sont les membres de la guilde : sur la carte de la zone dans
-l'onglet Carte, et sur la carte du monde du jeu. Trois chiffres disent
-pourquoi la carte est vide (en ligne, avec l'add-on, qui partage), et chaque
-membre a sa raison : sur la carte, autre zone, en donjon, position coupée, pas
-d'add-on. Les positions ne circulent que quand quelqu'un regarde une carte,
-jamais en donjon, en raid ou en champ de bataille, et chacun peut couper le
-partage depuis l'onglet (ou `/rempart position`).
+**Carte** — où sont les membres de la guilde : sur la carte de la zone, et sur
+la carte du monde du jeu. Une phrase dit « 12 en ligne · 1 sur la carte » ; la
+liste ne s'attarde que sur ceux qu'on ne voit pas, avec la raison (autre zone, en
+donjon, position coupée, pas d'add-on). Les positions ne circulent que quand
+quelqu'un regarde une carte, jamais en donjon, en raid ou en champ de bataille,
+et chacun peut couper le partage depuis l'écran (ou `/rempart position`).
 
-**Banque** — ce que le journal de la banque de guilde a montré : les dépôts
-d'or et d'objets mouvement par mouvement, le total de chaque membre sur 7
-jours, 30 jours ou tout ce qui est lu, et l'objectif de l'effort de guerre
-auquel chaque dépôt est rattaché. Un bouton écrit dans le chat ce que le jeu
-rend du journal (utile pour vérifier que la lecture marche sur Forever).
+**Officiers** — tout ce que seuls les officiers font : l'état du **relais
+automatique** depuis le PC d'un officier (ce qui est parti au site, ce qui est
+arrivé, qui assure le relais et qui est en secours), la lecture de la banque et
+qui voit les noms et les montants, le seuil des officiers, la synchro de la
+guilde, et le copier-coller de secours (replié) dans les deux sens. Formats :
+[docs/PONT.md](docs/PONT.md) (codes) et [docs/RELAIS.md](docs/RELAIS.md) (le
+petit programme du relais).
 
-**Mes persos** — la fiche de chaque perso (classe, niveau, spé, rôle, métiers)
-est lue toute seule et partagée avec la guilde. Les recettes ne se lisent que
-quand le joueur ouvre un métier (le jeu ne laisse pas l'add-on le faire à sa
-place) : l'onglet dit quels métiers sont **lus** et lesquels sont **à ouvrir**,
-et une seule ligne dans le chat le rappelle à la connexion.
-
-**Pont** (officiers) — l'état du **relais automatique** depuis le PC d'un
-officier (ce qui est parti au site, ce qui est arrivé, qui assure le relais et
-qui est en secours), et le copier-coller qui reste en secours, dans les deux
-sens, en moins d'une minute. Le point en haut de la fenêtre dit si les données
-du site sont fraîches (vert, orange, rouge). Formats :
-[docs/PONT.md](docs/PONT.md) (codes) et [docs/RELAIS.md](docs/RELAIS.md)
-(le petit programme du relais).
+Ta fiche (classe, niveau, spé, rôle, métiers) est lue toute seule et partagée
+avec la guilde ; `/rempart fiche` la relit. Les recettes ne se lisent que quand
+tu ouvres un métier (le jeu ne laisse pas l'add-on le faire à ta place) : le
+bandeau des Artisans et une ligne dans le chat à la connexion le rappellent.
 
 ## Comment les données circulent
 
@@ -99,7 +102,8 @@ nombre dans `DernierRempart/DernierRempart.toc`.
 | Commande | Effet |
 |----------|-------|
 | `/rempart` | Ouvrir ou fermer la fenêtre |
-| `/rempart sorties` · `artisans` · `carte` · `effort` · `banque` · `persos` · `pont` | Ouvrir un onglet |
+| `/rempart sorties` · `artisans` · `carte` · `effort` · `officiers` | Ouvrir un onglet (`banque` : le journal de la banque ; `persos` et `pont` mènent à Artisans et Officiers) |
+| `/rempart fiche` | Relire son perso et ses métiers |
 | `/rempart synchro` | Redemander les dernières données à la guilde |
 | `/rempart position` | Partager ou non sa position |
 | `/rempart banque test` | Ce que le jeu rend du journal de la banque de guilde (banque ouverte) |
@@ -121,7 +125,7 @@ déconnectés. Ce que le client refuse aux add-ons est détaillé dans
 ## Pour les officiers
 
 - Les officiers sont les rangs 0 et 1 de la guilde. Le chef de guilde change
-  le seuil en bas de l'onglet Pont ; le réglage est partagé à tous.
+  le seuil dans l'écran Officiers ; le réglage est partagé à tous.
 - Seuls les officiers créent des sorties : une sortie envoyée par un autre est
   refusée par les add-ons.
 - La confiance repose sur la guilde : un membre qui trafiquerait son add-on
@@ -133,6 +137,7 @@ déconnectés. Ce que le client refuse aux add-ons est détaillé dans
 lua5.1 tests/run.lua          # tests hors jeu, avec un faux client WoW
 bash tests/interop/run.sh     # le PHP du site et l'add-on se relisent
 luacheck DernierRempart       # vérification statique
+bash tests/preview/run.sh /tmp/apercu   # dessine chaque écran (lua, Python, Node + Playwright)
 ```
 
 Le faux client (`tests/harness.lua`) charge l'add-on comme le jeu, plusieurs
@@ -145,12 +150,12 @@ de Forever et le Pont sont testés de bout en bout. Ce qui demande le vrai jeu e
 DernierRempart/
   Core/      démarrage, outils, JSON, Base64, magasin, guilde, messages, synchro
   Modules/   fiche perso, sorties, artisans, carte, effort de guerre, banque, pont
-  UI/        charte, composants, fenêtre et onglets, minicarte, épingles
-  Media/     blason, pictos de rôle, polices Marcellus et Open Sans (licence OFL)
+  UI/        style, composants, fenêtre et écrans, minicarte, épingles
+  Media/     médaillon, icônes d'onglets, pictos de rôle, police Marcellus (licence OFL)
 tools/php/   DrPont.php : lecture et écriture des codes DR2 pour le site
 tools/relais/ gabarit du mini add-on de données déposé par le relais
 ```
 
-Polices : Marcellus et Marcellus SC (Brian J. Bonislawsky), Open Sans (The
-Open Sans Project Authors), sous SIL Open Font License, fournies avec leur
-licence dans `DernierRempart/Media/Fonts`.
+Police : Marcellus (Brian J. Bonislawsky), sous SIL Open Font License, fournie avec
+sa licence dans `DernierRempart/Media/Fonts`. Le texte courant utilise la police
+du jeu. Les images de `Media` se redessinent avec `tools/media/make_media.py`.

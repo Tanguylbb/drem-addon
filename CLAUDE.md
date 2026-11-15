@@ -3,9 +3,15 @@
 - Add-on WoW: Forever (client Retail Midnight, interface 16001). Lua 5.1, pas
   de bibliothèque externe : tout le code est dans `DernierRempart/`.
 - Tous les textes visibles sont en français, phrases courtes, sans jargon.
-- Charte : celle des maquettes v2 du site (couleurs dans `UI/Theme.lua`). Or
-  pour l'action principale (une seule par écran), Ardoise pour le reste,
-  Sarcelle = plein, Ambre = il manque.
+- Style : celui des fenêtres du jeu (maquettes 0.5 révisées ; couleurs dans
+  `UI/Theme.lua`, composants dans `UI/Widgets.lua`). Cuir brun, cadre bronze,
+  noms dorés, listes noires. Rouge sombre pour l'action principale (une seule
+  par écran), ardoise pour le reste ; vert = plein, ambre = il manque, rouge =
+  en retard. Les fiches sont sur un panneau marine (`W.Navy`). Texte en police du
+  jeu (Marcellus seulement pour le nom dans la barre de titre). Pas de glyphes
+  hors Latin-1 dans les textes (→ ✓ ▸ : la police du jeu ne les a pas).
+- Avant de proposer un changement d'écran : `bash tests/preview/run.sh /tmp/apercu`
+  dessine chaque écran (positions, textes tronqués, chevauchements).
 - Données partagées : passer par `DR.Store` (Put, Delete, Merge). Ne jamais
   écrire directement dans la sauvegarde ; la synchro diffuse toute seule les
   écritures locales.
