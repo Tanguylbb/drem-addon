@@ -83,7 +83,7 @@ function page(data) {
   }
   return `<!doctype html><meta charset="utf-8"><style>
 body{margin:0;background:#0b0b0b}
-#c{position:relative;width:${data.w}px;height:${data.h}px;overflow:hidden;font-family:'Liberation Sans','Arial',sans-serif;letter-spacing:.015em;
+#c{position:relative;width:${data.w}px;height:${data.h}px;overflow:hidden;font-family:'Liberation Sans','Arial',sans-serif;letter-spacing:.03em;
  background:radial-gradient(ellipse at 18% 28%,#27362a 0%,transparent 55%),radial-gradient(ellipse at 88% 72%,#3a2a1a 0%,transparent 55%),#0b0b0b}
 .r,.t{position:absolute;box-sizing:border-box}
 .t{overflow:hidden;line-height:1.15;text-shadow:1px -1px 0 rgba(0,0,0,.9);}
@@ -114,14 +114,25 @@ body{margin:0;background:#0b0b0b}
         if (!s) continue;
         const txt = t.textContent.trim();
         if (!t.classList.contains('auto') && s.scrollWidth > s.clientWidth + 1 && getComputedStyle(t).whiteSpace === 'nowrap') {
-          out.push('tronqué : « ' + txt.slice(0, 50) + ' » (' + s.scrollWidth + ' > ' + s.clientWidth + ')');
+          out.push('(coupé par …) « ' + txt.slice(0, 50) + ' » (' + s.scrollWidth + ' > ' + s.clientWidth + ')');
         }
         if (getComputedStyle(t).whiteSpace !== 'nowrap' && t.scrollHeight > t.clientHeight + 2) {
           out.push('texte rogné en hauteur : « ' + txt.slice(0, 50) + ' »');
         }
         const r = document.createRange(); r.selectNodeContents(s);
         const b = r.getBoundingClientRect();
-        if (b.width > 0 && b.height > 0) rects.push({ txt, l: b.left, t: b.top, r: b.right, b: b.bottom });
+        const tb = t.getBoundingClientRect();
+        const auto = t.classList.contains('auto');
+        // Un texte dans une zone fixe est coupé par « … » : seule la partie visible compte.
+        let l = b.left, rr = b.right;
+        if (!auto) { l = Math.max(l, tb.left); rr = Math.min(rr, tb.right); }
+        // La police du jeu est plus large que celle de l'aperçu : on grossit le texte
+        // de 12 % du côté libre, pour que « presque en contact » compte comme chevauchement.
+        const grow = (rr - l) * 0.12;
+        const right = getComputedStyle(t).justifyContent === 'flex-end';
+        let nl = right ? l - grow : l, nr = right ? rr : rr + grow;
+        if (!auto) { nl = Math.max(nl, tb.left); nr = Math.min(nr, tb.right); } // une zone fixe coupe, elle ne déborde pas
+        if (rr - l > 0 && b.height > 0) rects.push({ txt, l: nl, t: b.top, r: nr, b: b.bottom });
       }
       for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
         const a = rects[i], c = rects[j];
@@ -136,8 +147,9 @@ body{margin:0;background:#0b0b0b}
     await p.screenshot({ path: path.join(dir, f.replace('.json', '.png')) });
     console.log(f.replace('.json', ''), report.length ? '' : 'rien à signaler');
     for (const r of report.slice(0, 14)) console.log('   ' + r);
-    problems += report.length;
+    problems += report.filter(r => !r.startsWith('(coupé')).length;
   }
   await b.close();
-  console.log(problems + ' remarque(s)');
+  console.log(problems + ' problème(s) (hors textes coupés par …)');
+  if (problems) process.exitCode = 1;
 })();

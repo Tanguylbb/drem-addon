@@ -505,13 +505,6 @@ function W.Header(parent, width)
   h.bg:SetAllPoints()
   T.Gradient(h.bg, C.headTop, C.headBottom)
   T.Border(h, C.goldLine, 1)
-  h.label = T.Text(h, "body", 14, C.goldText)
-  h.label:SetPoint("LEFT", 10, 0)
-  h.count = T.Text(h, "body", 11, rgb("A8956A"))
-  h.count:SetPoint("LEFT", h.label, "RIGHT", 6, 0)
-  h.extra = T.Text(h, "body", 11, C.muted)
-  h.extra:SetPoint("RIGHT", -30, 0)
-  h.extra:SetJustifyH("RIGHT")
   h.box = CreateFrame("Frame", nil, h)
   h.box:SetSize(15, 13)
   h.box:SetPoint("RIGHT", -7, 0)
@@ -525,15 +518,32 @@ function W.Header(parent, width)
   h.plus:SetSize(2, 9)
   h.plus:SetPoint("CENTER")
   h.plus:SetColorTexture(C.goldText[1], C.goldText[2], C.goldText[3], 1)
+  -- À droite, le nombre et la petite mention (« 3 sans artisan ») : un seul texte,
+  -- à sa largeur. Le nom, à gauche, prend la place qui reste et se coupe par « … »
+  -- au lieu de passer sur ses voisins.
+  h.right = T.Text(h, "body", 11, C.muted)
+  h.right:SetPoint("RIGHT", h.box, "LEFT", -8, 0)
+  h.right:SetJustifyH("RIGHT")
+  h.label = T.Text(h, "body", 14, C.goldText)
+  h.label:SetPoint("LEFT", 10, 0)
+  h.label:SetPoint("RIGHT", h.right, "LEFT", -10, 0)
   h.open = true
   h.plus:Hide()
+  local function render(self)
+    local count = self.countText and (T.Hex(rgb("A8956A")) .. self.countText .. "|r") or ""
+    local extra = (self.extraText and self.extraText ~= "")
+      and (T.Hex(self.extraColor or C.muted) .. self.extraText .. "|r") or ""
+    self.right:SetText(count .. ((count ~= "" and extra ~= "") and "   " or "") .. extra)
+  end
   function h:SetLabel(text, count)
-    self.label:SetText(text or "")
-    self.count:SetText(count and ("(" .. count .. ")") or "")
+    self.fullText = text or ""
+    self.label:SetText(self.fullText)
+    self.countText = count and ("(" .. count .. ")") or nil
+    render(self)
   end
   function h:SetExtra(text, c)
-    self.extra:SetText(text or "")
-    T.Color(self.extra, c or C.muted)
+    self.extraText, self.extraColor = text or "", c
+    render(self)
   end
   function h:SetOpen(open)
     self.open = open and true or false
@@ -542,6 +552,16 @@ function W.Header(parent, width)
   h:SetScript("OnClick", function(self)
     if self.onToggle then self.onToggle(not self.open) end
   end)
+  -- Nom coupé : l'infobulle le donne en entier.
+  h:HookScript("OnEnter", function(self)
+    local cut = self.label.IsTruncated and self.label:IsTruncated()
+    if cut == nil then cut = self.label:GetStringWidth() > (self.label:GetWidth() or 0) end
+    if not cut or (self.fullText or "") == "" then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(self.fullText, C.goldText[1], C.goldText[2], C.goldText[3])
+    GameTooltip:Show()
+  end)
+  h:HookScript("OnLeave", function() GameTooltip:Hide() end)
   return h
 end
 
@@ -586,7 +606,7 @@ function W.List(parent, opts)
   f.thumb:SetWidth(6)
   f.thumb:SetColorTexture(C.bronzeHi[1], C.bronzeHi[2], C.bronzeHi[3], 1)
 
-  for i = 1, visible do
+  local function makeRow(i)
     local row = CreateFrame("Button", nil, f)
     row:SetHeight(rh)
     row:SetPoint("TOPLEFT", 0, -(i - 1) * rh)
@@ -599,8 +619,9 @@ function W.List(parent, opts)
     row:SetScript("OnClick", function(self, button)
       if self.item and opts.click then opts.click(self.item, self, button) end
     end)
-    f.rows[i] = row
+    return row
   end
+  for i = 1, visible do f.rows[i] = makeRow(i) end
 
   f.empty = T.Para(f, "body", 12, C.muted, opts.width - 24)
   f.empty:SetPoint("TOPLEFT", 12, -12)
@@ -610,7 +631,7 @@ function W.List(parent, opts)
     local maxOffset = math.max(0, n - self.visible)
     if self.offset > maxOffset then self.offset = maxOffset end
     for i, row in ipairs(self.rows) do
-      local item = self.items[self.offset + i]
+      local item = i <= self.visible and self.items[self.offset + i] or nil
       row.item = item
       if item then
         row:Show()
@@ -631,6 +652,13 @@ function W.List(parent, opts)
       self.track:Hide(); self.thumb:Hide()
     end
     self.empty:SetShown(n == 0 and self.emptyText ~= nil)
+  end
+  -- Change la hauteur de la liste (les lignes en plus se créent, les autres se cachent).
+  function f:Resize(height)
+    self:SetHeight(height)
+    self.visible = math.max(1, math.floor(height / rh))
+    for i = #self.rows + 1, self.visible do self.rows[i] = makeRow(i) end
+    self:Refresh()
   end
   function f:SetItems(items, keepOffset)
     self.items = items or {}
@@ -664,6 +692,11 @@ function W.BlackList(parent, opts)
   local list = W.List(box, opts)
   list:SetPoint("TOPLEFT", 1, -1)
   box.list = list
+  -- Même chose pour la boîte et la liste qu'elle contient.
+  function box:Resize(height)
+    self:SetHeight(height)
+    list:Resize(height - 2)
+  end
   return box, list
 end
 

@@ -242,63 +242,61 @@ function Tab:BuildDetail(d, w, h)
   d.info:SetPoint("TOPLEFT", pad, -132)
   d.info:SetMaxLines(3)
 
-  -- Ma réponse.
+  -- Ma réponse : d'abord le rôle (quand la sortie en demande), puis la réponse.
   local y = -178
+  d.y = y
   d.ansHeader = W.Header(body, inner)
   d.ansHeader:SetPoint("TOPLEFT", pad, y)
   d.ansHeader:SetLabel("Ma réponse")
   d.ansHeader.onToggle = nil
+
+  d.roleRow = CreateFrame("Frame", nil, body)
+  d.roleRow:SetSize(inner, 26)
+  d.roleLabel = T.Text(d.roleRow, "body", 12, C.brume)
+  d.roleLabel:SetPoint("LEFT", 2, 0)
+  d.roleLabel:SetText("Mon rôle")
+  d.roleBtns = {}
+  local rbw = 96
+  for i, role in ipairs(Util.ROLES) do
+    local b = W.Button(d.roleRow, Util.ROLE_LABEL[role], "toggle", rbw, 26)
+    b.icon = b:CreateTexture(nil, "OVERLAY")
+    b.icon:SetSize(14, 14)
+    b.icon:SetPoint("LEFT", 10, 0)
+    b.icon:SetTexture(T.Icon(T.ROLE_ICON[role]))
+    b:SetPoint("LEFT", 78 + (i - 1) * (rbw + 6), 0)
+    b:SetScript("OnClick", function() self:PickRole(role) end)
+    W.Tip(b, Util.ROLE_LABEL[role], "Le rôle que tu tiendras dans cette sortie. Il est proposé d'office la prochaine fois.")
+    d.roleBtns[role] = b
+  end
+
   d.answers = {}
-  local x = pad
   local aw = math.floor((inner - 18) / 4)
+  local x = pad
   for _, s in ipairs(Cal.STATUS_ORDER) do
     local b = W.Button(body, Cal.STATUSES[s].label, "toggle", aw, 26)
-    b:SetPoint("TOPLEFT", x, y - 32)
+    b.x = x
     b:SetScript("OnClick", function() self:Answer(s) end)
     d.answers[s] = b
     x = x + aw + 6
   end
 
-  -- « Tu viens avec Perso, en soins · Modifier » : ou, une fois « Modifier »
-  -- cliqué, le perso, le rôle et le petit mot.
+  -- « Tu viens avec Perso · Modifier » : ou, une fois « Modifier » cliqué, le perso
+  -- et le petit mot.
   d.line = T.Text(body, "body", 12, C.brume)
-  d.line:SetPoint("TOPLEFT", pad, y - 68)
-  d.line:SetPoint("RIGHT", -pad - 84, 0)
   d.change = W.Button(body, "Modifier", "ghost", 70, 20)
-  d.change:SetPoint("TOPRIGHT", -pad, y - 65)
   d.change:SetScript("OnClick", function()
     self.editing = not self.editing
     self:RefreshAnswer()
   end)
   d.state = T.Text(body, "body", 11, C.muted)
-  d.state:SetPoint("TOPLEFT", pad, y - 86)
-  d.state:SetPoint("RIGHT", -pad, 0)
 
   d.edit = CreateFrame("Frame", nil, body)
-  d.edit:SetPoint("TOPLEFT", pad, y - 62)
   d.edit:SetSize(inner - 84, 26)
-  d.charBtn = W.Button(d.edit, "Perso", "sec", 200, 24)
+  d.charBtn = W.Button(d.edit, "Perso", "sec", 230, 24)
   d.charBtn:SetPoint("LEFT", 0, 0)
   d.charBtn:SetScript("OnClick", function(btn) self:OpenCharMenu(btn) end)
-  d.roleBtns = {}
-  local last = d.charBtn
-  for _, role in ipairs(Util.ROLES) do
-    local b = W.Button(d.edit, "", "toggle", 34, 24)
-    b.icon = b:CreateTexture(nil, "OVERLAY")
-    b.icon:SetSize(14, 14)
-    b.icon:SetPoint("CENTER")
-    b.icon:SetTexture(T.Icon(T.ROLE_ICON[role]))
-    b:SetPoint("LEFT", last, "RIGHT", 6, 0)
-    b:SetScript("OnClick", function()
-      self.role = role
-      self:RefreshAnswer()
-    end)
-    W.Tip(b, Util.ROLE_LABEL[role])
-    d.roleBtns[role] = b
-    last = b
-  end
   d.note = W.Edit(d.edit, 100, 24, "Petit mot (60 caractères)", 60)
-  d.note:SetPoint("LEFT", last, "RIGHT", 8, 0)
+  d.note:SetPoint("LEFT", d.charBtn, "RIGHT", 8, 0)
   d.note:SetPoint("RIGHT", d.edit, "RIGHT", 0, 0)
   d.note:SetScript("OnEnterPressed", function(e)
     e:ClearFocus()
@@ -307,14 +305,13 @@ function Tab:BuildDetail(d, w, h)
   end)
   d.edit:Hide()
 
-  -- Inscrits.
+  -- Inscrits (la position dépend de la ligne « Mon rôle » : voir Tab:LayoutAnswer).
   local sy = y - 108
   d.signHeader = W.Header(body, inner)
-  d.signHeader:SetPoint("TOPLEFT", pad, sy)
   d.signHeader:SetLabel("Inscrits", 0)
-  local listH = math.max(60, h + sy - 28 - 12 - 46 - 8)
+  d.listH = math.max(60, h + sy - 28 - 12 - 46 - 8)
   d.signBox, d.signups = W.BlackList(body, {
-    width = inner, height = listH, rowHeight = 19,
+    width = inner, height = d.listH, rowHeight = 19,
     create = function(row)
       row.text = T.Text(row, "body", 12)
       row.text:SetPoint("LEFT", 8, 0)
@@ -322,8 +319,8 @@ function Tab:BuildDetail(d, w, h)
     end,
     update = function(row, item) row.text:SetText(item.text) end,
   })
-  d.signBox:SetPoint("TOPLEFT", pad, sy - 28)
   d.signups:SetEmptyText("Personne n'est encore inscrit. Sois le premier !")
+  d.pad = pad
 
   -- Pour les officiers : qui a répondu, qui ne l'a pas fait, qui n'a pas l'add-on.
   local seen = CreateFrame("Frame", nil, body)
@@ -521,6 +518,59 @@ function Tab:OpenCharMenu(anchor)
   W.OpenMenu(anchor, items, 230)
 end
 
+-- Une sortie demande-t-elle des rôles ? (Sinon : soirée, entraide… on ne demande rien.)
+local function wantsRoles(ev)
+  return ((ev.nt or 0) + (ev.nh or 0) + (ev.nd or 0)) > 0
+end
+Tab.WantsRoles = wantsRoles
+
+-- Ma réponse : la ligne « Mon rôle » n'existe que si la sortie demande des rôles ;
+-- tout ce qui est dessous se décale d'autant.
+function Tab:LayoutAnswer(hasRoles)
+  local d = self.detail
+  if d.laidRoles == hasRoles then return end
+  d.laidRoles = hasRoles
+  local pad, y = d.pad, d.y
+  local extra = hasRoles and 30 or 0
+  local ay = y - 32 - extra
+  d.roleRow:ClearAllPoints()
+  d.roleRow:SetPoint("TOPLEFT", pad, y - 32)
+  d.roleRow:SetShown(hasRoles)
+  for _, b in pairs(d.answers) do
+    b:ClearAllPoints()
+    b:SetPoint("TOPLEFT", b.x, ay)
+  end
+  d.line:ClearAllPoints()
+  d.line:SetPoint("TOPLEFT", pad, ay - 36)
+  d.line:SetPoint("RIGHT", -pad - 84, 0)
+  d.change:ClearAllPoints()
+  d.change:SetPoint("TOPRIGHT", -pad, ay - 33)
+  d.state:ClearAllPoints()
+  d.state:SetPoint("TOPLEFT", pad, ay - 54)
+  d.state:SetPoint("RIGHT", -pad, 0)
+  d.edit:ClearAllPoints()
+  d.edit:SetPoint("TOPLEFT", pad, ay - 30)
+  local sy = ay - 76
+  d.signHeader:ClearAllPoints()
+  d.signHeader:SetPoint("TOPLEFT", pad, sy)
+  d.signBox:ClearAllPoints()
+  d.signBox:SetPoint("TOPLEFT", pad, sy - 28)
+  d.signBox:Resize(d.listH - extra)
+end
+
+-- Un clic sur un rôle : s'il y a déjà une réponse, elle est mise à jour tout de suite ;
+-- sinon le rôle est retenu pour quand on répondra.
+function Tab:PickRole(role)
+  self.role = role
+  local ev = Cal:Get(self.selected)
+  local mine = ev and Cal:MySignup(ev.id)
+  if mine and (Cal:IsOpen(ev) or DR.Guild:IAmOfficer()) then
+    self:Answer(mine.s)
+  else
+    self:RefreshAnswer()
+  end
+end
+
 function Tab:Answer(status)
   local ev = Cal:Get(self.selected)
   if not ev then return end
@@ -542,24 +592,27 @@ function Tab:RefreshAnswer()
   local d = self.detail
   local ev = Cal:Get(self.selected)
   if not ev then return end
+  local hasRoles = wantsRoles(ev)
+  self:LayoutAnswer(hasRoles)
   local mine = Cal:MySignup(ev.id)
   local char = DR.db.myChars[self.char or ""] or DR.Store:Get("chars", self.char or "") or {}
   d.charBtn:SetLabel("Perso : " .. Util.ClassName(self.char or DR.playerName, char.cl)
     .. T.Hex(C.muted) .. " (" .. (char.lv or "?") .. ")|r")
+  local open = Cal:IsOpen(ev) or DR.Guild:IAmOfficer()
   for role, b in pairs(d.roleBtns) do
     local on = self.role == role
     b:SetActive(on)
+    b:SetEnabled(open)
     local c = on and C.redText or C.brume
     b.icon:SetVertexColor(c[1], c[2], c[3])
   end
   -- « Présent » est le bouton rouge tant qu'on n'a pas répondu ; ensuite, la réponse choisie.
   for s, b in pairs(d.answers) do
     b:SetActive(mine and mine.s == s or (not mine and s == "yes"))
+    b:SetEnabled(open)
   end
-  local open = Cal:IsOpen(ev) or DR.Guild:IAmOfficer()
-  for _, b in pairs(d.answers) do b:SetEnabled(open) end
   local who = Util.ShortName(self.char or DR.playerName)
-  local role = self.role and (Util.ROLE_LABEL[self.role] or "") or ""
+  local role = (hasRoles and self.role) and (Util.ROLE_LABEL[self.role] or "") or ""
   d.edit:SetShown(self.editing and open)
   d.line:SetShown(not self.editing)
   d.change:SetShown(open)
@@ -574,7 +627,7 @@ function Tab:RefreshAnswer()
       d.state:SetText(T.Hex(C.green) .. "Ta réponse : " .. Cal.STATUSES[mine.s].label .. "|r" .. T.Hex(C.muted)
         .. " · " .. Util.Ago(mine.u) .. ". Partagée avec la guilde ; les officiers la passent au site.|r")
     else
-      d.state:SetText(T.Hex(C.amber) .. "Tu viens ? Réponds en un clic.|r")
+      d.state:SetText(T.Hex(C.amber) .. "Tu viens ? Réponds en un clic." .. (hasRoles and " Ton rôle est déjà choisi." or "") .. "|r")
     end
   end
 end
@@ -739,7 +792,7 @@ function Tab:RefreshDetail()
       local sc = statusColor(st)
       rows[#rows + 1] = { text = T.Hex(sc) .. GROUP_LABEL[st] .. " (" .. #g .. ")|r" }
       for _, s in ipairs(g) do
-        local txt = "   " .. T.RoleIcon(s.r, 12, C.brume) .. "  " .. T.Hex(C.goldText) .. Util.ClassName(s.c, s.cl or DR.Profile:ClassOf(s.c)) .. "|r"
+        local txt = "   " .. (wantsRoles(ev) and (T.RoleIcon(s.r, 12, C.brume) .. "  ") or "") .. T.Hex(C.goldText) .. Util.ClassName(s.c, s.cl or DR.Profile:ClassOf(s.c)) .. "|r"
         if s.m then txt = txt .. T.Hex(C.muted) .. "  « " .. s.m .. " »|r" end
         if not DR.Guild:IsMember(s.c) and next(DR.Guild.members) then
           txt = txt .. T.Hex(C.muted) .. "  (hors guilde)|r"

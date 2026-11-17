@@ -10,6 +10,11 @@ local root = (arg and arg[0] and arg[0]:match("^(.*)/tests/[^/]*$")) or "."
 package.path = root .. "/tests/?.lua;" .. package.path
 local H = require("harness")
 local OUT = arg[1] or "preview-out"
+-- Deuxième argument « long » : mêmes écrans avec des noms, des titres et des
+-- recettes aussi longs que dans une vraie guilde (c'est là que les textes se
+-- marchent dessus).
+local LONG = arg[2] == "long"
+local function N(short, long) return LONG and long or short end
 os.execute("mkdir -p '" .. OUT .. "'")
 
 local CANVAS_W, CANVAS_H = 1000, 740
@@ -17,36 +22,36 @@ local CANVAS_W, CANVAS_H = 1000, 740
 ---------------------------------------------------------------------------
 -- Données de démonstration
 ---------------------------------------------------------------------------
-H.SPELLS[70001] = "Sac en lin"
-H.SPELLS[70002] = "Sac en soie"
-H.SPELLS[70003] = "Sac en tisse-mage"
-H.SPELLS[70004] = "Robe de soie"
-H.SPELLS[70005] = "Robe d'archimage"
-H.SPELLS[70006] = "Chemise blanche"
-H.SPELLS[70007] = "Chemise de soie"
-H.SPELLS[70008] = "Coupe de lin"
+H.SPELLS[70001] = N("Sac en lin", "Sac renforcé en lin tissé des montagnes d'Alterac")
+H.SPELLS[70002] = N("Sac en soie", "Sac de voyage en soie arachnéenne enchantée")
+H.SPELLS[70003] = N("Sac en tisse-mage", "Sac sans fond en tisse-mage runique des anciens")
+H.SPELLS[70004] = N("Robe de soie", "Robe d'érudit en soie lunaire brodée de fils d'argent")
+H.SPELLS[70005] = N("Robe d'archimage", "Robe de grand archimage de la cité des Brumes")
+H.SPELLS[70006] = N("Chemise blanche", "Chemise blanche de cérémonie du Dernier Rempart")
+H.SPELLS[70007] = N("Chemise de soie", "Chemise de soie sauvage teinte à la main")
+H.SPELLS[70008] = N("Coupe de lin", "Coupe de lin brut pour couturiers débutants")
 
 local net = H.NewNetwork()
 net.forever = true
 net:SetRoster({
   { name = "Shenryu Valdor", rankIndex = 1, rankName = "Officier", class = "PALADIN" },
-  { name = "Zephira Fale", rankIndex = 2, class = "PRIEST" },
-  { name = "Brume Lune", rankIndex = 2, class = "MAGE" },
-  { name = "Éowyn Varadien", rankIndex = 2, class = "DRUID" },
+  { name = N("Zephira Fale", "Zéphirine Montmorency"), rankIndex = 2, class = "PRIEST" },
+  { name = N("Brume Lune", "Bartholomeus Vandenberghe"), rankIndex = 2, class = "MAGE" },
+  { name = N("Éowyn Varadien", "Éowyn Varadien-Lasalle"), rankIndex = 2, class = "DRUID" },
   { name = "Lustu", rankIndex = 2, class = "HUNTER" },
   { name = "PoPyTeK", rankIndex = 2, class = "ROGUE" },
   { name = "R4insid", rankIndex = 2, class = "WARRIOR" },
   { name = "Galdrin Roc", rankIndex = 2, class = "SHAMAN" },
   { name = "Pikvol", rankIndex = 2, class = "ROGUE" },
-  { name = "Alkand Lightstar", rankIndex = 2, class = "PRIEST", online = false },
+  { name = N("Alkand Lightstar", "Alkandrine Lightstarsong"), rankIndex = 2, class = "PRIEST", online = false },
 })
 
 local bank = {
   tabs = 1,
   money = {
     { "deposit", "Shenryu Valdor", 250000, 0, 0, 0, 3 },
-    { "deposit", "Brume Lune", 120000, 0, 0, 1, 2 },
-    { "deposit", "Éowyn Varadien", 150000, 0, 0, 1, 1 },
+    { "deposit", N("Brume Lune", "Bartholomeus Vandenberghe"), 120000, 0, 0, 1, 2 },
+    { "deposit", N("Éowyn Varadien", "Éowyn Varadien-Lasalle"), 150000, 0, 0, 1, 1 },
     { "deposit", "R4insid", 100000, 0, 0, 4, 0 },
     { "deposit", "Lustu", 50000, 0, 0, 4, 0 },
     { "deposit", "PoPyTeK", 50000, 0, 0, 4, 1 },
@@ -61,9 +66,9 @@ local profs = function(rank) return { { name = "Couture", rank = rank, max = 150
 local clients = {}
 local specs = {
   { name = "Shenryu Valdor", rankIndex = 1, class = "PALADIN", bank = bank, profs = profs(128), map = { m = 1453, x = 0.52, y = 0.61 } },
-  { name = "Zephira Fale", class = "PRIEST", profs = profs(150), map = { m = 1453, x = 0.30, y = 0.40 } },
-  { name = "Brume Lune", class = "MAGE", profs = profs(90) },
-  { name = "Éowyn Varadien", class = "DRUID", profs = profs(60) },
+  { name = N("Zephira Fale", "Zéphirine Montmorency"), class = "PRIEST", profs = profs(150), map = { m = 1453, x = 0.30, y = 0.40 } },
+  { name = N("Brume Lune", "Bartholomeus Vandenberghe"), class = "MAGE", profs = profs(90) },
+  { name = N("Éowyn Varadien", "Éowyn Varadien-Lasalle"), class = "DRUID", profs = profs(60) },
   { name = "Lustu", class = "HUNTER" },
   { name = "PoPyTeK", class = "ROGUE" },
 }
@@ -77,8 +82,10 @@ A.DR.db.settings.debug = true
 
 -- Recettes de couture : lues par trois membres, deux recettes que personne ne sait.
 local ALL = { 70001, 70002, 70003, 70004, 70005, 70006, 70007, 70008 }
-local TYPES = { [70001] = "Sacs", [70002] = "Sacs", [70003] = "Sacs", [70004] = "Robes", [70005] = "Robes",
-  [70006] = "Chemises", [70007] = "Chemises", [70008] = "Composants" }
+local TB, TR, TC, TK = N("Sacs", "Sacs et besaces de voyage de grande contenance"), N("Robes", "Robes d'érudit et tenues de cérémonie"),
+  N("Chemises", "Chemises et tuniques de tous les jours"), N("Composants", "Composants et matériaux de couture avancée")
+local TYPES = { [70001] = TB, [70002] = TB, [70003] = TB, [70004] = TR, [70005] = TR,
+  [70006] = TC, [70007] = TC, [70008] = TK }
 local function learn(client, ids)
   local set = {}
   for _, id in ipairs(ids) do set[id] = true end
@@ -114,10 +121,10 @@ local function at(days, hour)
   return os.time(t)
 end
 local E = A.DR.Calendar
-local evSoiree = E:SaveEvent({ t = "Sac de couchage", k = "soiree", d = at(1, 21), dur = 120 })
-local evDonjon = E:SaveEvent({ t = "Profondeurs de Brassenoire", k = "donjon", d = at(2, 20), dur = 150, cap = 5, nt = 1, nh = 1, nd = 3 })
-local evRaid = E:SaveEvent({ t = "Cœur du Magma", k = "raid", d = at(4, 21), dur = 180, cap = 10, nt = 2, nh = 4, nd = 10,
-  lead = "Shenryu Valdor", rdv = "Entrée du repaire", note = "Potions de résistance au feu, nourriture" })
+local evSoiree = E:SaveEvent({ t = N("Sac de couchage", "Soirée de guilde : défi des maîtres du donjon de Brassenoire"), k = "soiree", d = at(1, 21), dur = 120 })
+local evDonjon = E:SaveEvent({ t = N("Profondeurs de Brassenoire", "Profondeurs de Brassenoire en mode héroïque avec les nouveaux"), k = "donjon", d = at(2, 20), dur = 150, cap = 5, nt = 1, nh = 1, nd = 3 })
+local evRaid = E:SaveEvent({ t = N("Cœur du Magma", "Cœur du Magma : première nuit de progression en mode mythique"), k = "raid", d = at(4, 21), dur = 180, cap = 10, nt = 2, nh = 4, nd = 10,
+  lead = "Shenryu Valdor", rdv = N("Entrée du repaire", "Devant l'entrée du repaire, côté pont de pierre"), note = "Potions de résistance au feu, nourriture" })
 net:Advance(5)
 A.DR.Calendar:SetSignup(evSoiree.id, "Shenryu Valdor", "yes", "H")
 A.DR.Calendar:SetSignup(evDonjon.id, "Shenryu Valdor", "yes", "H")
@@ -129,12 +136,12 @@ end
 net:Advance(8)
 
 -- Effort de guerre : l'or lu dans la banque, un objectif en objets, un objectif atteint.
-A.DR.Effort:SaveGoal({ t = "Coffre de guilde, onglet 2", k = "or", amt = "200 po",
+A.DR.Effort:SaveGoal({ t = N("Coffre de guilde, onglet 2", "Coffre de guilde, onglet 2 : réserve pour les réparations de raid"), k = "or", amt = "200 po",
   from = os.date("%d/%m/%Y", now - 5 * 86400), to = os.date("%d/%m/%Y", now + 10 * 86400) })
-A.DR.Effort:SaveGoal({ t = "Potions de résistance au feu", k = "objet", amt = "40", tag = "Cœur du Magma",
+A.DR.Effort:SaveGoal({ t = N("Potions de résistance au feu", "Potions de résistance au feu pour la progression du Cœur du Magma"), k = "objet", amt = "40", tag = N("Cœur du Magma", "Cœur du Magma, mode mythique"),
   item = "|Hitem:3451:0|h[Potion de soins majeure]|h", from = os.date("%d/%m/%Y", now - 3 * 86400),
   to = os.date("%d/%m/%Y", now + 4 * 86400) })
-local done = A.DR.Effort:SaveGoal({ t = "Tabards de guilde", k = "or", amt = "150 po",
+local done = A.DR.Effort:SaveGoal({ t = N("Tabards de guilde", "Tabards de guilde pour tous les nouveaux membres"), k = "or", amt = "150 po",
   from = os.date("%d/%m/%Y", now - 20 * 86400), to = os.date("%d/%m/%Y", now - 12 * 86400) })
 net:Advance(4)
 A:Fire("GUILDBANKFRAME_OPENED")
@@ -181,7 +188,7 @@ end
 local function textWidth(o)
   local size = o._fsize or 12
   local plain = (o._text or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T[^|]*|t", "MM")
-  return #plain * size * 0.54
+  return #plain * size * 0.60
 end
 
 rectOf = function(o)
@@ -317,7 +324,10 @@ sorties:Refresh()
 dump("sorties-modifier")
 sorties.editing = false
 sorties:OpenForm(nil)
+-- Le formulaire recouvre la fiche : on ne dessine pas ce qui est dessous.
+sorties.detail:Hide()
 dump("sorties-formulaire")
+sorties.detail:Show()
 sorties.form:Hide()
 
 A:Slash("officiers")

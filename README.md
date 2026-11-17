@@ -13,7 +13,7 @@ du monde, rouge quand c'est en retard.
 ## Ce qu'il fait
 
 Quatre onglets d'icônes sur le bord droit de la fenêtre (Sorties, Artisans,
-Carte, Effort de guerre), et un cinquième, **Officiers**, que seuls les
+Qui est là, Effort de guerre), et un cinquième, **Officiers**, que seuls les
 officiers voient. Une pastille orange sur un onglet dit qu'il y a quelque chose
 à faire (une sortie sans réponse, une commande qui attend ton accord, un don à
 classer). En bas de la fenêtre, un point de couleur dit si la synchro avec la
@@ -21,9 +21,12 @@ guilde est à jour ; l'infobulle donne le détail.
 
 **Sorties** — le calendrier des raids, donjons et soirées sur 60 jours : la
 liste à gauche (avec une recherche), la fiche sur fond marine à droite. La
-réponse vient d'abord : « Présent » est le bouton rouge, puis Peut-être,
-Remplaçant, Absent. Le perso et le rôle sont déjà choisis ; « Modifier » ouvre
-leur choix et le petit mot, et le rôle choisi est proposé la fois suivante.
+réponse vient d'abord : quand la sortie demande des rôles, **Mon rôle** (Tank,
+Soins, DPS) est juste au-dessus, déjà choisi ; puis « Présent » est le bouton
+rouge, puis Peut-être, Remplaçant, Absent. Changer de rôle après avoir répondu
+met la réponse à jour tout de suite, et le rôle choisi est proposé la fois
+suivante. Sans rôle demandé (soirée, entraide), il n'y a rien à choisir.
+« Modifier » ouvre le choix du perso et le petit mot.
 Trois barres montrent ce qui manque (tanks, soins, DPS). Les officiers créent,
 modifient, ferment ou annulent les sorties en jeu ; celles du site arrivent par
 le Pont. Pour eux seulement : combien ont répondu, combien n'ont pas répondu,
@@ -54,12 +57,16 @@ deux objectifs est « à classer » par un officier. Les retraits ne comptent pa
 Le journal de la banque se lit seulement banque ouverte et ne garde que les
 derniers mouvements : plus il y a de membres qui l'ouvrent, moins il en manque.
 
-**Carte** — où sont les membres de la guilde : sur la carte de la zone, et sur
-la carte du monde du jeu. Une phrase dit « 12 en ligne · 1 sur la carte » ; la
-liste ne s'attarde que sur ceux qu'on ne voit pas, avec la raison (autre zone, en
-donjon, position coupée, pas d'add-on). Les positions ne circulent que quand
-quelqu'un regarde une carte, jamais en donjon, en raid ou en champ de bataille,
-et chacun peut couper le partage depuis l'écran (ou `/rempart position`).
+**Qui est là** (`/rempart carte`) — qui est en ligne, où, et pourquoi on ne le
+voit pas sur la carte. Il n'y a plus de carte dans la fenêtre : les membres qui
+partagent leur position sont directement sur **la carte du monde du jeu**
+(touche M), à la couleur de leur classe ; un clic sur un nom ouvre la carte à sa
+zone. Une phrase dit « 12 en ligne · 1 sur la carte », la liste donne la zone et
+la raison de chacun (en donjon, position coupée, pas d'add-on). Les positions ne
+circulent que quand quelqu'un regarde une carte, jamais en donjon, en raid ou en
+champ de bataille, et chacun peut couper le partage depuis l'écran (ou
+`/rempart position`). Si personne d'autre ne partage, l'écran le dit : la carte
+du jeu est alors vide, ce n'est pas une panne.
 
 **Officiers** — tout ce que seuls les officiers font : l'état du **relais
 automatique** depuis le PC d'un officier (ce qui est parti au site, ce qui est
@@ -149,7 +156,7 @@ de Forever et le Pont sont testés de bout en bout. Ce qui demande le vrai jeu e
 ```
 DernierRempart/
   Core/      démarrage, outils, JSON, Base64, magasin, guilde, messages, synchro
-  Modules/   fiche perso, sorties, artisans, carte, effort de guerre, banque, pont
+  Modules/   fiche perso, sorties, artisans, carte (positions), effort de guerre, banque, pont
   UI/        style, composants, fenêtre et écrans, minicarte, épingles
   Media/     médaillon, icônes d'onglets, pictos de rôle, police Marcellus (licence OFL)
 tools/php/   DrPont.php : lecture et écriture des codes DR2 pour le site

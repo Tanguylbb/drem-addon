@@ -11,7 +11,11 @@
   jeu (Marcellus seulement pour le nom dans la barre de titre). Pas de glyphes
   hors Latin-1 dans les textes (→ ✓ ▸ : la police du jeu ne les a pas).
 - Avant de proposer un changement d'écran : `bash tests/preview/run.sh /tmp/apercu`
-  dessine chaque écran (positions, textes tronqués, chevauchements).
+  dessine chaque écran en deux passes (noms courts, puis noms aussi longs que
+  dans une vraie guilde) et **échoue au moindre chevauchement de textes**. Ne
+  jamais écarter une alerte « se chevauchent » : les testeurs l'ont vue en jeu
+  (0.4.0). Tout texte dont la longueur varie (nom, titre, recette) doit être
+  borné des deux côtés (deux ancrages ou une largeur) pour se couper par « … ».
 - Données partagées : passer par `DR.Store` (Put, Delete, Merge). Ne jamais
   écrire directement dans la sauvegarde ; la synchro diffuse toute seule les
   écritures locales.

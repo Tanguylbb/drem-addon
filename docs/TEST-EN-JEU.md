@@ -59,13 +59,20 @@ capture) ou « bizarre ».
 - [ ] Le filtre « Personne ne la sait » liste des recettes du métier que
       personne ne connaît.
 
-## 4. Carte (4 min)
+## 4. Qui est là et carte du monde (4 min)
 
-- [ ] O et M dans la même zone, hors donjon. O ouvre l'onglet Carte : la carte
-      de la zone s'affiche, M y apparaît dans sa couleur de classe (≤ 10 s).
-- [ ] O ouvre la carte du monde : M y est aussi, avec son nom au survol.
-- [ ] M entre dans un donjon : il disparaît de la carte de O.
+- [ ] O et M dans la même zone, hors donjon. O ouvre l'onglet **Qui est là** :
+      M est dans la liste avec un point vert et « sur la carte » (≤ 10 s). Il n'y
+      a aucune carte dessinée dans la fenêtre.
+- [ ] O ouvre la carte du monde (touche M, ou le bouton rouge de l'onglet) : M y
+      est avec son nom au survol, dans la couleur de sa classe. **C'est le
+      point à vérifier en priorité** : c'est lui qui remplace l'ancienne carte.
+- [ ] Un clic sur le nom de M dans la liste ouvre la carte du monde à sa zone.
+- [ ] M entre dans un donjon : il disparaît de la carte et la liste dit « en
+      donjon ».
 - [ ] M tape `/rempart position` : il n'apparaît plus.
+- [ ] Seul O partage : le texte ambre « Personne d'autre ne partage… » apparaît.
+- [ ] Case « Montrer la guilde sur la carte du monde » décochée : plus de points.
 
 ## 5. Pont avec le site (4 min, O seulement)
 
@@ -123,9 +130,8 @@ moins sûre : le jeu peut la refuser ou la limiter sur Forever)
 
 **Carte, sorties, synchro**
 
-- [ ] Carte : la phrase « N en ligne · M sur la carte » et la raison de chaque
-      membre qu'on ne voit pas (autre zone, en donjon, position coupée, pas
-      d'add-on) ; « Voir les autres » déplie la liste.
+- [ ] Qui est là : la phrase « N en ligne · M sur la carte », et pour chaque
+      membre la zone et la raison (en donjon, position coupée, pas d'add-on).
 - [ ] Le point en bas à gauche est vert quand la guilde a répondu. Quand elle ne
       répond plus, il passe à l'ambre et la bande « Redemander » apparaît dans
       Sorties ; « Redemander » fait arriver une sortie manquante sans commande.
@@ -171,3 +177,18 @@ l'essentiel de ce test.
 - Erreurs Lua (activer `/console scriptErrors 1`) : capture du message.
 - Ce qui est lent, illisible ou mal placé.
 - `/rempart debug` affiche plus de détails dans le chat pendant le test.
+
+## 8. Noms longs (0.4.1, 2 min)
+
+Les testeurs ont vu des textes qui se superposaient quand un nom est long.
+
+- [ ] Artisans, métier avec des types de craft aux noms longs : le nom du type se
+      coupe par « … » et ne passe pas sur « N sans artisan ». Survoler l'en-tête
+      donne le nom en entier.
+- [ ] Recettes aux noms longs : le nom se coupe, le +1 et « N artisans » restent
+      lisibles.
+- [ ] Sorties : un titre long se coupe dans la liste et dans la fiche, sans
+      recouvrir les boutons « Fermer » et « Modifier ».
+- [ ] Sortie avec des tanks/soins/DPS demandés : la ligne « Mon rôle » est
+      visible au-dessus de « Présent ». Changer de rôle après avoir répondu met
+      la réponse à jour. Une soirée sans rôle demandé n'a pas cette ligne.

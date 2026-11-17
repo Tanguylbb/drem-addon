@@ -288,9 +288,7 @@ end
 function Tab:RefreshRelay()
   local st = Bridge:RelayStatus()
   local lv = LEVELS[st.level] or LEVELS.none
-  self.relayText = self.relayText or self.relayHeader.extra
   self.relayHeader:SetExtra(lv.text, lv.color)
-  self.relayHeader.extra:SetPoint("RIGHT", -10, 0)
 
   local sent, recv = self.boxes[1], self.boxes[2]
   if st.lastSent then

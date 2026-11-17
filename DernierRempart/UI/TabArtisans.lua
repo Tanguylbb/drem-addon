@@ -14,7 +14,7 @@ UI:RegisterTab("artisans", "Artisans", Tab)
 Tab.icon = "tab_artisans"
 Tab.tip = "Qui sait fabriquer quoi, les recettes à acheter et tes commandes."
 
-local LIST_W = 330
+local LIST_W = 360
 local INFO_ROW = 44    -- bandeau « métier à ouvrir » ou catalogue
 local BODY_Y = 78
 local MAX_PROFS = 12
@@ -102,6 +102,12 @@ function Tab:BuildInfoRow(f, width)
   row.text = T.Text(row, "body", 12, C.muted)
   row.text:SetPoint("LEFT", 12, 0)
   row.text:SetPoint("RIGHT", -150, 0)
+  row:EnableMouse(true)
+  W.Tip(row, function(r)
+    if r.pending and #r.pending > 0 and r.text:GetText() and r.text:GetText():find("pas encore partagés", 1, true) then
+      return "Métiers pas encore partagés"
+    end
+  end, "Aucun membre n'a ouvert la fenêtre de ces métiers avec l'add-on : leurs recettes n'apparaissent donc pas. Dès qu'un artisan l'ouvre une fois, elles arrivent chez tout le monde, même chez ceux qui n'ont pas le métier.")
   row.btn = W.Button(row, "Compris", "sec", 100, 22)
   row.btn:SetPoint("RIGHT", -6, 0)
   row.btn:SetScript("OnClick", function()
@@ -170,9 +176,9 @@ function Tab:BuildRecipes(f, bodyH)
       row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
       row.name = T.Text(rec, "body", 13, C.ivory)
       row.name:SetPoint("LEFT", row.icon, "RIGHT", 7, 0)
-      row.name:SetPoint("RIGHT", -130, 0)
+      row.name:SetPoint("RIGHT", -98, 0)
       row.dot = W.Dot(rec, 8)
-      row.dot:SetPoint("RIGHT", -78, 0)
+      row.dot:SetPoint("RIGHT", -84, 0)
       row.state = T.Text(rec, "body", 11, C.green)
       row.state:SetPoint("RIGHT", -8, 0)
       row.state:SetWidth(66)
@@ -220,21 +226,21 @@ function Tab:UpdateRecipeRow(row, item)
   row.selBox:SetShown(selected)
   T.Color(row.name, selected and C.goldPale or C.ivory)
   if #e.crafters == 0 then
-    row.dot:Hide()
+    -- Personne ne la sait : un point rouge et le +1 (le détail est dans la fiche).
     row.state:Hide()
+    row.dot:ClearAllPoints()
+    row.dot:SetPoint("RIGHT", -68, 0)
+    row.dot:SetColor(C.red)
+    row.dot:Show()
     local n = want and want.n or 0
     row.plus:Show()
     row.plus:SetLabel("+1 · " .. n)
     row.plus:SetActive(want and want.mine or false)
     row.plus:SetScript("OnClick", function() self:ToggleWant(e) end)
-    row.noone = row.noone or T.Text(row.rec, "body", 11, C.red)
-    row.noone:SetPoint("RIGHT", row.plus, "LEFT", -8, 0)
-    row.noone:SetText("Personne")
-    row.noone:Show()
-    row.name:SetPoint("RIGHT", -130, 0)
   else
-    if row.noone then row.noone:Hide() end
     row.plus:Hide()
+    row.dot:ClearAllPoints()
+    row.dot:SetPoint("RIGHT", -84, 0)
     row.dot:Show(); row.dot:SetColor(C.green)
     row.state:Show()
     row.state:SetText(#e.crafters .. " artisan" .. (#e.crafters > 1 and "s" or ""))
@@ -821,6 +827,19 @@ function Tab:SetView(view)
   self:Refresh()
 end
 
+-- Les métiers d'artisan que personne n'a encore partagés (ils n'ont donc pas d'icône).
+local GATHERING = { [182] = true, [186] = true, [393] = true, [356] = true, [794] = true }
+function Tab:UnsharedProfessions(professions)
+  local have = {}
+  for _, pr in ipairs(professions) do have[pr.id] = true end
+  local out = {}
+  for id, name in pairs(DR.Profile.PROFESSIONS) do
+    if not have[id] and not GATHERING[id] then out[#out + 1] = name end
+  end
+  table.sort(out)
+  return out
+end
+
 -- Les icônes des métiers, la ligne d'info (bandeau ou catalogue), les deux boutons.
 function Tab:RefreshTop()
   local professions = self:ResolveProfession()
@@ -871,7 +890,13 @@ function Tab:RefreshTop()
         .. " membre" .. (info.readers > 1 and "s" or ""))
       T.Color(row.text, (info.members > info.readers) and C.amber or C.muted)
     else
-      row.text:SetText("Catalogue : " .. (#Crafts:Index().list + #Crafts:Index().missing) .. " recettes · " .. #professions .. " métiers")
+      local line = "Catalogue : " .. (#Crafts:Index().list + #Crafts:Index().missing) .. " recettes · " .. #professions .. " métier" .. (#professions > 1 and "s" or "")
+      local pending = self:UnsharedProfessions(professions)
+      row.pending = pending
+      if #pending > 0 then
+        line = line .. " · pas encore partagés : " .. table.concat(pending, ", ")
+      end
+      row.text:SetText(line)
       T.Color(row.text, C.muted)
     end
   end

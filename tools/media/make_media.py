@@ -171,26 +171,22 @@ def icon_anvil(n=64):
     save(finish(img, n), "tab_artisans")
 
 
-def icon_compass(n=64):
+def icon_people(n=64):
+    """Deux silhouettes : « Qui est là » (l'onglet qui montrait une carte)."""
     img = canvas(n)
     k = n / 32
-    c, r = 16 * k, 12.5 * k
-    fill(img, rgrad(img.width, img.height, "2D4F90", "0E1D40", .4, .3), lambda m: m.ellipse([s(c - r), s(c - r), s(c + r), s(c + r)], fill=255))
-    d = ImageDraw.Draw(img)
-    d.ellipse([s(c - r), s(c - r), s(c + r), s(c + r)], outline=rgb("E6C47C"), width=s(2 * k))
-    d.ellipse([s(c - 9 * k), s(c - 9 * k), s(c + 9 * k), s(c + 9 * k)], outline=(230, 196, 124, 110), width=s(.8 * k))
-    ang = math.radians(35)
 
-    def rot(x, y):
-        x -= 16
-        y -= 16
-        return (16 + x * math.cos(ang) - y * math.sin(ang), 16 + x * math.sin(ang) + y * math.cos(ang))
-    north = [rot(*p) for p in ((16, 6), (19.2, 16), (12.8, 16))]
-    south = [rot(*p) for p in ((16, 26), (19.2, 16), (12.8, 16))]
-    d.polygon(poly(south, k), fill=rgb("E8553E"))
-    d.polygon(poly(north, k), fill=rgb("FFF4D6"))
-    d.ellipse([s(c - 2 * k), s(c - 2 * k), s(c + 2 * k), s(c + 2 * k)], fill=rgb("F6D55A"))
-    save(finish(img, n), "tab_carte")
+    def person(cx, top, scale, c1, c2):
+        head = [s((cx - 4.2 * scale) * k), s(top * k), s((cx + 4.2 * scale) * k), s((top + 8.4 * scale) * k)]
+        body = [s((cx - 8.2 * scale) * k), s((top + 10 * scale) * k), s((cx + 8.2 * scale) * k), s((top + 10 * scale + 2 * 9.5 * scale) * k)]
+        fill(img, vgrad(img.width, img.height, c1, c2), lambda m: (m.ellipse(head, fill=255), m.pieslice(body, 180, 360, fill=255)))
+        d = ImageDraw.Draw(img)
+        d.ellipse(head, outline=rgb("1B1F27"), width=s(1.1 * k))
+        d.arc(body, 180, 360, fill=rgb("1B1F27"), width=s(1.1 * k))
+
+    person(21.5, 5.5, 0.82, "9FB6DF", "3D5688")   # derrière, plus petit
+    person(12.5, 6, 1.0, "F6D55A", "B58A22")       # devant, doré
+    save(finish(img, n), "tab_presents")
 
 
 def icon_coins(n=64):
@@ -247,7 +243,7 @@ def coche(n=32):
 
 
 def contact_sheet():
-    names = ["medaillon", "tour", "tab_sorties", "tab_artisans", "tab_carte", "tab_effort", "tab_officiers", "croix", "coche"]
+    names = ["medaillon", "tour", "tab_sorties", "tab_artisans", "tab_presents", "tab_effort", "tab_officiers", "croix", "coche"]
     sheet = Image.new("RGBA", (len(names) * 140, 140), (30, 24, 18, 255))
     for i, nme in enumerate(names):
         im = Image.open(os.path.join(OUT, nme + ".tga")).convert("RGBA")
@@ -260,7 +256,7 @@ if __name__ == "__main__":
     tower_icon(64)
     icon_calendar()
     icon_anvil()
-    icon_compass()
+    icon_people()
     icon_coins()
     icon_shield()
     croix(32)

@@ -223,7 +223,7 @@ end
 ---------------------------------------------------------------------------
 local HELP = {
   "/rempart : ouvrir ou fermer la fenêtre",
-  "/rempart sorties | artisans | carte | effort | officiers : ouvrir un onglet (banque = le journal de la banque)",
+  "/rempart sorties | artisans | carte | effort | officiers : ouvrir un onglet (carte = qui est là ; banque = le journal de la banque)",
   "/rempart fiche : relire ton perso et tes métiers",
   "/rempart synchro : demander les dernières données à la guilde",
   "/rempart position : partager ou non ta position avec la guilde",
