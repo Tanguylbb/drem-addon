@@ -19,7 +19,7 @@ DR.Store = Store
 local Json = DR.Json
 
 Store.BUCKETS = 16
-Store.DATASETS = { "events", "signups", "chars", "recipes", "catalog", "orders", "votes", "meta", "goals", "gifts" }
+Store.DATASETS = { "events", "signups", "chars", "recipes", "catalog", "orders", "votes", "meta", "goals", "gifts", "verdicts" }
 
 local DAY = 86400
 
@@ -35,20 +35,21 @@ local KEYS = {
   meta = function(r) return r.id end,
   goals = function(r) return r.id end,
   gifts = function(r) return r.id end,
+  verdicts = function(r) return r.e and r.c and (r.e .. "|" .. r.c) end,
 }
 
 -- Champs gardés sur une pierre tombale (ceux qui forment la clé).
 local KEY_FIELDS = {
   events = { "id" }, signups = { "e", "c" }, chars = { "n" }, recipes = { "c", "p" },
   catalog = { "p" }, orders = { "id" }, votes = { "o", "c" }, meta = { "id" },
-  goals = { "id" }, gifts = { "id" },
+  goals = { "id" }, gifts = { "id" }, verdicts = { "e", "c" },
 }
 
 -- Durée de vie avant oubli (les données expirées ne sont plus échangées).
 local function isExpired(ds, r, now)
   if r.del then return (r.u or 0) < now - 30 * DAY end
   if ds == "events" then return (r.d or now) < now - 60 * DAY end
-  if ds == "signups" then return (r.u or 0) < now - 75 * DAY end
+  if ds == "signups" or ds == "verdicts" then return (r.u or 0) < now - 75 * DAY end
   if ds == "orders" then
     local final = r.s == "faite" or r.s == "annulee" or r.s == "apprise" or r.s == "abandonnee"
     return final and (r.u or 0) < now - 60 * DAY

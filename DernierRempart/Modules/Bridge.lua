@@ -18,25 +18,25 @@ Bridge.MAGIC = "DR2:"
 Bridge.FORMAT = 2
 
 -- Ce que le site envoie, ce que le jeu renvoie.
-Bridge.FROM_SITE = { "events", "signups", "orders", "votes", "meta", "goals" }
-Bridge.TO_SITE = { "events", "signups", "chars", "recipes", "orders", "votes", "goals", "gifts" }
+Bridge.FROM_SITE = { "events", "signups", "verdicts", "orders", "votes", "meta", "goals" }
+Bridge.TO_SITE = { "events", "signups", "verdicts", "chars", "recipes", "orders", "votes", "goals", "gifts" }
 
 Bridge.LABELS = {
   events = "sorties", signups = "inscriptions", chars = "fiches perso", recipes = "listes de recettes",
   catalog = "catalogues", orders = "commandes", votes = "soutiens", meta = "réglages",
-  goals = "objectifs", gifts = "dons",
+  goals = "objectifs", gifts = "dons", verdicts = "décisions",
 }
 -- Singulier, pour « 1 sortie » (le pluriel est LABELS).
 Bridge.LABELS_ONE = {
   events = "sortie", signups = "inscription", chars = "fiche perso", recipes = "liste de recettes",
   catalog = "catalogue", orders = "commande", votes = "soutien", meta = "réglage",
-  goals = "objectif", gifts = "don",
+  goals = "objectif", gifts = "don", verdicts = "décision",
 }
 
 -- « 3 inscriptions, 1 commande, 2 fiches perso » à partir de { signups = 3, … }.
 function Bridge.CountsText(counts)
   local parts = {}
-  for _, ds in ipairs({ "events", "signups", "orders", "votes", "chars", "recipes", "goals", "gifts", "meta" }) do
+  for _, ds in ipairs({ "events", "signups", "verdicts", "orders", "votes", "chars", "recipes", "goals", "gifts", "meta" }) do
     local n = counts and tonumber(counts[ds])
     if n and n > 0 then
       parts[#parts + 1] = n .. " " .. (n > 1 and Bridge.LABELS[ds] or Bridge.LABELS_ONE[ds])

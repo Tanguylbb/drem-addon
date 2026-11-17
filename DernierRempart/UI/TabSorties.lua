@@ -16,7 +16,7 @@ Tab.tip = "Les raids, donjons et soirées de la guilde, et ta réponse."
 local LIST_W = 300
 local ROW_H = 54
 local TOP = 30 -- la pastille de compte, au-dessus des deux colonnes
-local GROUP_LABEL = { yes = "Présents", maybe = "Peut-être", bench = "Remplaçants", wait = "Liste d'attente", no = "Absents" }
+local GROUP_LABEL = { yes = "Présents", maybe = "Peut-être", bench = "Remplaçants", wait = "Liste d'attente", pending = "Demandes", reserve = "En réserve", no = "Absents" }
 local NEED_LABEL = { T = "Tanks voulus", H = "Soins voulus", D = "DPS voulus" }
 local BAR_LABEL = { T = "Tanks", H = "Soins", D = "DPS" }
 
@@ -92,13 +92,19 @@ local function updateRow(row, ev)
   local cancelled = ev.st == "cancelled"
   row.title:SetText(ev.t)
   T.Color(row.title, cancelled and C.muted or C.goldText)
-  row.sub:SetText(kind.label .. " · " .. p.jour .. " " .. p.num .. " " .. p.mois .. " · " .. p.heure)
+  local requests = (ev.ap and Cal:CanEdit(ev)) and #Cal:Pending(ev) or 0
+  row.sub:SetText((requests > 0 and "" or (kind.label .. " · ")) .. p.jour .. " " .. p.num .. " " .. p.mois .. " · " .. p.heure
+    .. (requests > 0 and ("   " .. T.Hex(C.amber) .. requests .. " à décider|r") or ""))
   local mine = Cal:MySignup(ev.id)
   if cancelled then
     setStat(row.stat, "x", C.red)
   elseif mine then
     local sc = statusColor(mine.s)
-    if mine.s == "yes" and (Cal:MyState(ev.id)) == "wait" then setStat(row.stat, "A", C.amber)
+    local mystate = (Cal:MyState(ev.id))
+    if mystate == "wait" then setStat(row.stat, "A", C.amber)
+    elseif mystate == "pending" then setStat(row.stat, "D", C.amber)
+    elseif mystate == "reserve" then setStat(row.stat, "R", C.amber)
+    elseif mystate == "refused" then setStat(row.stat, "x", C.red)
     elseif mine.s == "yes" then setStat(row.stat, "check", C.green)
     elseif mine.s == "maybe" then setStat(row.stat, "?", sc)
     elseif mine.s == "bench" then setStat(row.stat, "R", sc)
@@ -154,7 +160,11 @@ function Tab:Create(f, width, height)
     width = LIST_W, height = listH, rowHeight = ROW_H,
     create = createRow,
     update = updateRow,
-    click = function(ev) self.selected = ev.id; self:Refresh() end,
+    click = function(ev)
+      self.selected = ev.id
+      if self.review then self.review:Hide() end
+      self:Refresh()
+    end,
   })
   self.listBox:SetPoint("TOPLEFT", 0, -TOP - 60)
 
@@ -191,6 +201,7 @@ function Tab:Create(f, width, height)
   self.detail:SetSize(dw, dh)
   self:BuildDetail(self.detail, dw, dh)
   self:BuildForm(f, dw, dh)
+  self:BuildReview(f, dw, dh)
 end
 
 function Tab:BuildDetail(d, w, h)
@@ -236,11 +247,15 @@ function Tab:BuildDetail(d, w, h)
     bar:SetPoint("TOPLEFT", pad + (i - 1) * (bw + 8), -86)
     d.needs[role] = bar
   end
+  d.review = W.Button(body, "Demandes", "sec", 150, 22)
+  d.review:SetPoint("TOPRIGHT", -pad, -106)
+  d.review:SetScript("OnClick", function() self:OpenReview() end)
+  W.Tip(d.review, "Demandes", "Les inscriptions à décider : accepter, mettre en réserve ou ne pas retenir, avec les classes déjà prises.")
   d.capBar = W.Bar(body, inner, 18)
   d.capBar:SetPoint("TOPLEFT", pad, -86)
   d.missing = T.Text(body, "semi", 12, C.amber)
   d.missing:SetPoint("TOPLEFT", pad, -110)
-  d.missing:SetPoint("RIGHT", -pad, 0)
+  d.missing:SetPoint("RIGHT", -pad - 160, 0)
 
   d.info = T.Para(body, "body", 12, C.ivory, inner)
   d.info:SetPoint("TOPLEFT", pad, -132)
@@ -410,6 +425,17 @@ function Tab:BuildForm(f, w, h)
   form.dur = W.Edit(form, 80, 26, "150", 4)
   form.dur:SetPoint("TOPLEFT", pad + 234, y - 16)
   form.rowDate = y
+  -- Inscriptions : libres (donjon), ou sur validation du créateur (raid : équilibrer les classes).
+  labeled(form, "Inscriptions", pad + 330, y)
+  form.apModes = {}
+  for i, mode in ipairs({ "free", "val" }) do
+    local b = W.Button(form, mode == "free" and "Libres" or "Validation", "toggle", 82, 26)
+    b:SetPoint("TOPLEFT", pad + 330 + (i - 1) * 88, y - 16)
+    b:SetScript("OnClick", function() form.apTouched = true; self:SetFormApMode(mode) end)
+    form.apModes[mode] = b
+  end
+  W.Tip(form.apModes.free, "Inscriptions libres", "Chacun s'inscrit, c'est tout : donjon, soirée…")
+  W.Tip(form.apModes.val, "Sur validation", "Chaque inscription est une demande : tu l'acceptes, la mets en réserve ou ne la retiens pas. Utile pour un raid, quand il ne faut pas dix fois la même classe. Tu es prévenu à chaque demande.")
 
   -- Rôles : aucun (soirée de guilde…), ou une composition.
   y = y - 54
@@ -486,6 +512,7 @@ function Tab:SetFormKind(k, fromOpen)
   for kk, bb in pairs(form.kinds) do bb:SetActive(kk == k) end
   if fromOpen then return end
   if not form.roleTouched then self:SetFormRoleMode((k == "raid" or k == "donjon") and "comp" or "none") end
+  if not form.apTouched then self:SetFormApMode(k == "raid" and "val" or "free") end
   local d = DEFAULTS[k]
   if d and not form.editing then
     if form.cap:GetText() == "" then form.cap:SetText(d.cap) end
@@ -493,6 +520,12 @@ function Tab:SetFormKind(k, fromOpen)
       if (form.needs[role]:GetText() or "") == "" then form.needs[role]:SetText(d[role]) end
     end
   end
+end
+
+function Tab:SetFormApMode(mode)
+  local form = self.form
+  form.apMode = mode
+  for m, b in pairs(form.apModes) do b:SetActive(m == mode) end
 end
 
 function Tab:SetFormRoleMode(mode)
@@ -513,6 +546,7 @@ function Tab:OpenForm(ev)
   local form = self.form
   form.editing = ev and ev.id or nil
   form.roleTouched = ev ~= nil
+  form.apTouched = ev ~= nil
   form.heading:SetText(ev and "Modifier la sortie" or "Nouvelle sortie")
   form.t:SetText(ev and ev.t or "")
   form.kinds.raid:SetEnabled(officer)
@@ -533,8 +567,10 @@ function Tab:OpenForm(ev)
   form.error:SetText("")
   if ev then
     self:SetFormRoleMode(Cal.WantsRoles(ev) and "comp" or "none")
+    self:SetFormApMode(ev.ap and "val" or "free")
   else
     self:SetFormRoleMode("none")
+    self:SetFormApMode("free")
     self:SetFormKind(form.kind) -- pose le mode de rôles et les suggestions du type
   end
   form:Show()
@@ -551,6 +587,7 @@ function Tab:SaveForm()
     nt = comp and form.needs.T:GetText() or 0, nh = comp and form.needs.H:GetText() or 0,
     nd = comp and form.needs.D:GetText() or 0,
     lead = form.lead:GetText(), rdv = form.rdv:GetText(), note = form.note:GetText(),
+    ap = form.apMode == "val",
   })
   if not rec then
     form.error:SetText(err or "Impossible d'enregistrer.")
@@ -560,6 +597,160 @@ function Tab:SaveForm()
   self.selected = rec.id
   UI:Toast(form.editing and "Sortie modifiée : partagée avec la guilde." or "Sortie créée : partagée avec la guilde.", "ok")
   self:Refresh()
+end
+
+---------------------------------------------------------------------------
+-- Demandes : décider des inscriptions d'une sortie sur validation
+---------------------------------------------------------------------------
+-- Un panneau par-dessus la fiche, comme le formulaire : toute la hauteur pour la liste,
+-- les classes déjà prises en haut, trois boutons par demande.
+local VERDICT_BTN = {
+  a = { label = "Accepter", w = 84, color = C.green },
+  w = { label = "Réserve", w = 78, color = C.amber },
+  r = { label = "Refuser", w = 78, color = C.red },
+}
+local REVIEW_ROW = 30
+
+function Tab:BuildReview(f, w, h)
+  local panel = T.Card(f)
+  panel:SetPoint("TOPLEFT", LIST_W + 10, -TOP)
+  panel:SetSize(w, h)
+  panel:SetFrameLevel(self.detail:GetFrameLevel() + 10)
+  panel:EnableMouse(true)
+  panel:Hide()
+  self.review = panel
+  local pad = 16
+  panel.heading = T.Text(panel, "title", 20, C.goldText)
+  panel.heading:SetPoint("TOPLEFT", pad, -pad)
+  panel.heading:SetPoint("RIGHT", -pad, 0)
+  panel.sub = T.Text(panel, "body", 12, C.muted)
+  panel.sub:SetPoint("TOPLEFT", panel.heading, "BOTTOMLEFT", 0, -5)
+  panel.sub:SetPoint("RIGHT", -pad, 0)
+  panel.classes = T.Para(panel, "body", 12, C.brume, w - 2 * pad)
+  panel.classes:SetPoint("TOPLEFT", pad, -70)
+  panel.classes:SetMaxLines(2)
+
+  panel.box, panel.list = W.BlackList(panel, {
+    width = w - 2 * pad, height = h - 168, rowHeight = REVIEW_ROW,
+    create = function(row)
+      row.text = T.Text(row, "body", 12)
+      row.text:SetPoint("LEFT", 8, 0)
+      row.btn = {}
+      local x = -6
+      for _, v in ipairs({ "r", "w", "a" }) do
+        local def = VERDICT_BTN[v]
+        local b = W.Button(row, def.label, "sec", def.w, 22)
+        b:SetPoint("RIGHT", x, 0)
+        T.Color(b.label, def.color)
+        x = x - def.w - 4
+        b:SetScript("OnClick", function() self:Decide(row.item, v) end)
+        row.btn[v] = b
+      end
+    end,
+    update = function(row, item)
+      row.text:SetText(item.text)
+      row.text:ClearAllPoints()
+      row.text:SetPoint("LEFT", 8, 0)
+      local show = item.entry ~= nil
+      row.text:SetPoint("RIGHT", show and -256 or -4, 0)
+      for v, b in pairs(row.btn) do
+        b:SetShown(show and item.verdict ~= v)
+        if show then b:SetEnabled(not (v == "a" and item.full)) end
+      end
+    end,
+  })
+  panel.box:SetPoint("TOPLEFT", pad, -104)
+  panel.list:SetEmptyText("Aucune demande pour l'instant. Tu seras prévenu à chaque inscription.")
+  panel.close = W.Button(panel, "Fermer", "red", 150, 30)
+  panel.close:SetPoint("BOTTOMLEFT", pad, pad)
+  panel.close:SetScript("OnClick", function() panel:Hide(); self:Refresh() end)
+  panel.hint = T.Text(panel, "body", 11, C.muted)
+  panel.hint:SetPoint("LEFT", panel.close, "RIGHT", 14, 0)
+  panel.hint:SetWidth(w - 2 * pad - 164)
+  panel.hint:SetText("Le demandeur est prévenu. Tu peux changer ta décision.")
+end
+
+function Tab:OpenReview()
+  local ev = self.selected and Cal:Get(self.selected)
+  if not ev or not ev.ap or not Cal:CanEdit(ev) then return end
+  self.review.event = ev.id
+  self.review:Show()
+  self:RefreshReview()
+end
+
+-- Accepter, mettre en réserve ou ne pas retenir.
+function Tab:Decide(item, v)
+  if not item or not item.entry or not self.review.event then return end
+  local ok, why = Cal:SetVerdict(self.review.event, item.entry.s.c, v)
+  if not ok then UI:Toast(why, "warn") end
+  self:RefreshReview()
+  self:Refresh()
+end
+
+function Tab:RefreshReview()
+  local panel = self.review
+  if not panel or not panel:IsShown() then return end
+  local ev = Cal:Get(panel.event)
+  if not ev or not ev.ap or not Cal:CanEdit(ev) then panel:Hide(); return end
+  local entries = Cal:Entries(ev.id)
+  local cap = Cal.Capacity(ev)
+  local accepted, byClass, acceptedYes = 0, {}, 0
+  for _, e in ipairs(entries) do
+    if e.state == "in" or e.state == "wait" then
+      if e.s.s == "yes" then
+        acceptedYes = acceptedYes + 1
+        local cl = e.s.cl or DR.Profile:ClassOf(e.s.c)
+        byClass[cl or "?"] = (byClass[cl or "?"] or 0) + 1
+      end
+      accepted = accepted + 1
+    end
+  end
+  local full = cap ~= nil and acceptedYes >= cap
+  panel.heading:SetText("Demandes")
+  panel.sub:SetText(ev.t .. (cap and ("  ·  " .. acceptedYes .. "/" .. cap .. " places prises") or ""))
+  local parts = {}
+  local classes = {}
+  for cl in pairs(byClass) do classes[#classes + 1] = cl end
+  table.sort(classes, function(a, b)
+    if byClass[a] ~= byClass[b] then return byClass[a] > byClass[b] end
+    return Util.ClassLabel(a) < Util.ClassLabel(b)
+  end)
+  for _, cl in ipairs(classes) do
+    parts[#parts + 1] = "|cff" .. Util.ClassHex(cl) .. Util.ClassLabel(cl) .. " " .. byClass[cl] .. "|r"
+  end
+  panel.classes:SetText(#parts > 0 and (T.Hex(C.muted) .. "Classes acceptées :|r " .. table.concat(parts, "  ·  "))
+    or (T.Hex(C.muted) .. "Personne d'accepté pour l'instant.|r"))
+
+  -- À décider d'abord, puis la réserve, ceux qu'on n'a pas retenus, et les acceptés.
+  local groups = { pending = {}, reserve = {}, refused = {}, ["in"] = {} }
+  for _, e in ipairs(entries) do
+    local key = e.state == "wait" and "in" or e.state
+    if groups[key] and e.s.s ~= "no" then table.insert(groups[key], e) end
+  end
+  local titles = { pending = "À décider", reserve = "En réserve", refused = "Pas retenus", ["in"] = "Acceptés" }
+  local colors = { pending = C.amber, reserve = C.amber, refused = C.red, ["in"] = C.green }
+  local verdictOf = { reserve = "w", refused = "r", ["in"] = "a" }
+  local rows = {}
+  for _, key in ipairs({ "pending", "reserve", "refused", "in" }) do
+    local g = groups[key]
+    if #g > 0 then
+      rows[#rows + 1] = { text = T.Hex(colors[key]) .. titles[key] .. " (" .. #g .. ")|r" }
+      for _, e in ipairs(g) do
+        local s = e.s
+        local cl = s.cl or DR.Profile:ClassOf(s.c)
+        local txt = (Cal.WantsRoles(ev) and (T.RoleIcon(s.r, 12, C.brume) .. "  ") or "")
+          .. T.Hex(C.goldText) .. Util.ClassName(s.c, cl) .. "|r"
+          .. T.Hex(C.muted) .. "  " .. Cal.STATUSES[s.s].label:lower() .. "|r"
+        if key ~= "in" and (byClass[cl or "?"] or 0) >= 2 then
+          txt = txt .. T.Hex(C.amber) .. "  déjà " .. byClass[cl] .. " de sa classe|r"
+        end
+        if e.state == "wait" then txt = txt .. T.Hex(C.amber) .. "  complet : en attente|r" end
+        if s.m then txt = txt .. T.Hex(C.muted) .. "  « " .. s.m .. " »|r" end
+        rows[#rows + 1] = { text = "   " .. txt, entry = e, verdict = verdictOf[key], full = full and s.s == "yes" and key ~= "in" }
+      end
+    end
+  end
+  panel.list:SetItems(rows, true)
 end
 
 ---------------------------------------------------------------------------
@@ -699,8 +890,21 @@ function Tab:RefreshAnswer()
   else
     d.line:SetText((mine and "Tu viens avec " or "Tu viendrais avec ") .. T.Hex(C.goldText) .. who .. "|r"
       .. (role ~= "" and (", en " .. role:lower()) or ""))
-    local state, rank = Cal:MyState(ev.id)
-    if mine and state == "wait" then
+    local state, rank, _, entry = Cal:MyState(ev.id)
+    local organizer = ev.own and Util.ShortName(ev.own) or "l'organisateur"
+    if mine and state == "pending" and entry.late then
+      d.state:SetText(T.Hex(C.muted) .. "Pas de réponse de " .. organizer .. " : la sortie a commencé.|r")
+    elseif mine and state == "pending" then
+      d.state:SetText(T.Hex(C.amber) .. "Ta demande attend la validation de " .. organizer .. ".|r" .. T.Hex(C.muted)
+        .. " Tu seras prévenu.|r")
+    elseif mine and state == "reserve" then
+      d.state:SetText(T.Hex(C.amber) .. "En réserve :|r" .. T.Hex(C.muted) .. " " .. organizer .. " te garde sous le coude.|r")
+    elseif mine and state == "refused" then
+      d.state:SetText(T.Hex(C.muted) .. "Pas retenu cette fois. Tu peux écrire à " .. organizer .. ".|r")
+    elseif mine and state == "in" and ev.ap and entry.by and mine.s ~= "no" then
+      d.state:SetText(T.Hex(C.green) .. "Accepté" .. ((Cal.SameOwner(entry.by, DR.playerName) and "") or (" par " .. Util.ShortName(entry.by))) .. ".|r"
+        .. T.Hex(C.muted) .. " Ta réponse : " .. Cal.STATUSES[mine.s].label .. ".|r")
+    elseif mine and state == "wait" then
       d.state:SetText(T.Hex(C.amber) .. "Complet : tu es en liste d'attente (n° " .. rank .. ").|r" .. T.Hex(C.muted)
         .. " Tu montes tout seul si une place se libère.|r")
     elseif mine then
@@ -770,6 +974,7 @@ function Tab:Refresh()
   self.list:SetItems(items, true)
   self:RefreshSync()
   self:RefreshDetail()
+  self:RefreshReview()
 end
 
 -- La bande ambre : seulement si la guilde n'a pas répondu.
@@ -804,6 +1009,7 @@ function Tab:RefreshDetail()
     .. " · " .. Util.Until(ev.d))
   if ev.st == "cancelled" then d.badge:Set("Annulée", C.red); d.badge:Show()
   elseif not Cal:IsOpen(ev) then d.badge:Set("Inscriptions fermées", C.amber); d.badge:Show()
+  elseif ev.ap then d.badge:Set("Sur validation", C.blue); d.badge:Show()
   elseif ev.src == "site" then d.badge:Set("Du site", C.green); d.badge:Show()
   else d.badge:Hide() end
 
@@ -856,6 +1062,11 @@ function Tab:RefreshDetail()
   d.lockBtn:SetLabel(ev.st == "closed" and "Rouvrir" or "Fermer")
   d.seen:SetShown(canEdit)
   d.seenLabel:SetText(officer and "OFFICIERS" or "ORGANISATEUR")
+  d.review:SetShown(canEdit and ev.ap ~= nil)
+  if canEdit and ev.ap then
+    local n = #Cal:Pending(ev)
+    d.review:SetLabel("Demandes" .. (n > 0 and ("  " .. T.Hex(C.amber) .. n .. "|r") or ""))
+  end
   if canEdit then
     local seen = Cal:SeenBy(ev.id)
     d.seenText:SetText(T.Hex(C.green) .. seen.answered .. "|r ont répondu · " .. T.Hex(C.amber) .. seen.pending
@@ -876,17 +1087,26 @@ function Tab:RefreshDetail()
   -- Liste des inscrits par réponse, puis la liste d'attente (dans l'ordre).
   local rows, groups, total = {}, {}, 0
   for _, e in ipairs(Cal:Entries(ev.id)) do
-    local key = e.state == "wait" and "wait" or e.s.s
+    local key = (e.state == "wait" or e.state == "pending" or e.state == "reserve") and e.state or e.s.s
+    if e.state == "refused" then key = nil end -- « pas retenu » : visible seulement dans Demandes
+    if key then
     groups[key] = groups[key] or {}
     table.insert(groups[key], e)
-    total = total + 1
+    total = total + ((key == "pending" or key == "reserve") and 0 or 1)
+    end
   end
   d.signHeader:SetLabel("Inscrits", total)
-  local order = { "yes", "maybe", "bench", "wait", "no" }
+  local order = { "yes", "maybe", "bench", "wait", "pending", "reserve", "no" }
+  local judge = Cal:CanEdit(ev)
   for _, st in ipairs(order) do
     local g = groups[st]
+    -- Les demandes en attente : les noms pour qui décide, le nombre pour les autres.
+    if st == "pending" and g and #g > 0 and not judge then
+      rows[#rows + 1] = { text = T.Hex(C.amber) .. #g .. (#g > 1 and " demandes attendent" or " demande attend") .. " une décision|r" }
+      g = nil
+    end
     if g and #g > 0 then
-      local sc = st == "wait" and C.amber or statusColor(st)
+      local sc = (st == "wait" or st == "pending" or st == "reserve") and C.amber or statusColor(st)
       rows[#rows + 1] = { text = T.Hex(sc) .. GROUP_LABEL[st] .. " (" .. #g .. ")|r" }
       for _, e in ipairs(g) do
         local s = e.s
@@ -906,11 +1126,18 @@ end
 
 function Tab:OnShow()
   if self.form then self.form:Hide() end
+  if self.review then self.review:Hide() end
 end
 
--- Pastille orange de l'onglet : les sorties qui attendent ma réponse.
+-- Pastille orange de l'onglet : les sorties qui attendent ma réponse, et les demandes
+-- que je dois décider.
 function Tab:Badge()
   if not DR.Store:IsReady() then return 0 end
-  local n = #Cal:AwaitingAnswer()
-  return n, n == 1 and "1 sortie attend ta réponse." or (n .. " sorties attendent ta réponse.")
+  local answers = #Cal:AwaitingAnswer()
+  local requests = 0
+  for _, j in ipairs(Cal:ToJudge()) do requests = requests + j.n end
+  local parts = {}
+  if answers > 0 then parts[#parts + 1] = answers == 1 and "1 sortie attend ta réponse" or (answers .. " sorties attendent ta réponse") end
+  if requests > 0 then parts[#parts + 1] = requests == 1 and "1 demande à décider" or (requests .. " demandes à décider") end
+  return answers + requests, #parts > 0 and (table.concat(parts, " · ") .. ".") or nil
 end

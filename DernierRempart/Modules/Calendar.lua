@@ -14,6 +14,11 @@
 --   s (yes|maybe|bench|no), m (petit mot), acc (compte),
 --   ft (quand il s'est mis « Présent » : l'ordre de la liste d'attente)
 --
+-- Décision ("verdicts", seulement sur une sortie « sur validation », ap = 1) :
+--   e (id de la sortie), c (perso), v (a = accepté, w = en réserve, r = pas retenu)
+--   Écrite par le créateur ou un officier ; pas de décision = demande en attente.
+--   Une décision d'un autre auteur est ignorée à la lecture (Cal:Entries).
+--
 -- Qui peut quoi : les officiers créent tout. Un membre crée donjons, soirées et
 -- autres (pas les raids), au plus MAX_ACTIVE sorties à venir à la fois, et
 -- gère les siennes. Les autres add-ons refusent le reste (Sync:Accept).
@@ -41,6 +46,13 @@ Cal.STATUS_ORDER = { "yes", "maybe", "bench", "no" }
 local ONGOING = 4 * 3600 -- une sortie reste « à venir » 4 h après son début
 Cal.MAX_ACTIVE = 5           -- sorties à venir qu'un membre (non officier) peut avoir à la fois
 Cal.MAX_AHEAD = 60 * 86400   -- pas plus de 60 jours devant
+Cal.ATTENTION = 24 * 3600    -- 24 h avant : les officiers voient les demandes sans réponse
+
+Cal.VERDICTS = {
+  a = { label = "Accepté", color = "72D3C6" },
+  w = { label = "En réserve", color = "F4A95C" },
+  r = { label = "Pas retenu", color = "E8553E" },
+}
 
 ---------------------------------------------------------------------------
 -- Lecture
@@ -92,19 +104,63 @@ end
 
 local function queueTime(s) return s.ft or s.u or 0 end
 
+-- Une décision est-elle valable ? Seulement celle d'un officier, du site ou du créateur.
+local function validVerdict(ev, v)
+  if not v or v.del then return nil end
+  if v.by == "site" or DR.Guild:IsOfficer(v.by) then return v.v end
+  if ev and ev.own and Cal.SameOwner(ev.own, v.by) then return v.v end
+  return nil
+end
+
+-- Règle de réception (Sync:Accept) : qui peut écrire une décision sur cette sortie ?
+-- Si la sortie n'est pas encore connue ici on laisse passer ; la lecture revérifie.
+function Cal.AcceptVerdict(rec, ev)
+  local by = rec.by
+  if by == "site" or DR.Guild:IsOfficer(by) then return true end
+  if not ev then return true end
+  return ev.own ~= nil and Cal.SameOwner(ev.own, by)
+end
+
 -- Les inscrits d'une sortie, chacun avec son état :
 --   in      : compte dans la sortie
 --   wait    : liste d'attente (plus de place) ; rank = son rang. Les « Présent » sont
 --             servis dans l'ordre où ils se sont inscrits ; une place libérée est
 --             donnée au suivant, sans rien faire (tout le monde calcule pareil).
+--   pending : demande à valider (sortie sur validation, pas encore de décision) ;
+--             late = la sortie a commencé sans réponse
+--   reserve : en réserve (décision du créateur)
+--   refused : pas retenu (décision du créateur)
 --   no      : absent
--- Triés : réponse, rôle, nom.
+-- by = qui a décidé. Triés : réponse, rôle, nom.
+local STATE_ORDER = { wait = 5, pending = 6, reserve = 7, refused = 8 }
+
 function Cal:Entries(eventId)
   local ev = type(eventId) == "table" and eventId or self:Get(eventId)
   local id = type(eventId) == "table" and eventId.id or eventId
+  local verdicts = {}
+  if ev and ev.ap then
+    for _, v in ipairs(Store:List("verdicts", function(x) return x.e == id end)) do
+      if validVerdict(ev, v) then verdicts[v.c] = v end
+    end
+  end
+  local now = Util.Now()
   local entries, yes = {}, {}
   for _, s in ipairs(Store:List("signups", function(x) return x.e == id end)) do
-    local e = { s = s, state = (s.s == "no") and "no" or "in" }
+    local e = { s = s, state = "in" }
+    if s.s == "no" then
+      e.state = "no"
+    elseif ev and ev.ap then
+      local v = verdicts[s.c]
+      if not v then
+        e.state, e.late = "pending", (ev.d or 0) < now
+      elseif v.v == "a" then
+        e.state, e.by = "in", v.by
+      elseif v.v == "w" then
+        e.state, e.by = "reserve", v.by
+      else
+        e.state, e.by = "refused", v.by
+      end
+    end
     entries[#entries + 1] = e
     if e.state == "in" and s.s == "yes" then yes[#yes + 1] = e end
   end
@@ -120,9 +176,11 @@ function Cal:Entries(eventId)
       yes[i].rank = i - cap
     end
   end
+  local function order(e)
+    return STATE_ORDER[e.state] or (Cal.STATUSES[e.s.s] and Cal.STATUSES[e.s.s].order or 9)
+  end
   table.sort(entries, function(a, b)
-    local oa = a.state == "wait" and 5 or (Cal.STATUSES[a.s.s] and Cal.STATUSES[a.s.s].order or 9)
-    local ob = b.state == "wait" and 5 or (Cal.STATUSES[b.s.s] and Cal.STATUSES[b.s.s].order or 9)
+    local oa, ob = order(a), order(b)
     if oa ~= ob then return oa < ob end
     if a.state == "wait" then return a.rank < b.rank end
     if (a.s.r or "") ~= (b.s.r or "") then return (a.s.r or "Z") < (b.s.r or "Z") end
@@ -131,22 +189,32 @@ function Cal:Entries(eventId)
   return entries
 end
 
--- Mon état dans la sortie (voir Entries) et mon rang d'attente, s'il y en a un.
+-- Les demandes qui attendent une décision (la sortie n'a pas encore commencé).
+function Cal:Pending(ev)
+  local out = {}
+  for _, e in ipairs(self:Entries(ev)) do
+    if e.state == "pending" and not e.late then out[#out + 1] = e end
+  end
+  return out
+end
+
+-- Mon état dans la sortie (voir Entries), mon rang d'attente, mon inscription et l'entrée.
 function Cal:MyState(eventId)
   local mine = self:MySignup(eventId)
   if not mine then return nil end
   for _, e in ipairs(self:Entries(eventId)) do
-    if e.s.c == mine.c then return e.state, e.rank, mine end
+    if e.s.c == mine.c then return e.state, e.rank, mine, e end
   end
   return nil
 end
 
 function Cal:Counts(eventId)
-  local c = { yes = 0, maybe = 0, bench = 0, no = 0, wait = 0, T = 0, H = 0, D = 0, total = 0 }
+  local c = { yes = 0, maybe = 0, bench = 0, no = 0, wait = 0, pending = 0, reserve = 0, refused = 0,
+    T = 0, H = 0, D = 0, total = 0 }
   for _, e in ipairs(self:Entries(eventId)) do
     c.total = c.total + 1
-    if e.state == "wait" then
-      c.wait = c.wait + 1
+    if e.state == "wait" or e.state == "pending" or e.state == "reserve" or e.state == "refused" then
+      c[e.state] = c[e.state] + 1
     else
       local st = e.s.s
       if c[st] then c[st] = c[st] + 1 end
@@ -347,9 +415,61 @@ function Cal:SetSignup(eventId, charName, status, role, note)
     m = (note and note ~= "") and Util.Truncate(note, 60) or nil,
     acc = char.acc, ft = ft,
   })
+  -- Sur validation : celui qui décide n'a pas à se demander la permission.
+  if ev.ap and status ~= "no" and self:CanEdit(ev) then
+    self:SetVerdict(eventId, charName, "a", true)
+  end
   DR:Emit("SIGNUP_CHANGED", eventId)
   local state, rank = self:MyState(eventId)
   return true, state, rank
+end
+
+-- Décider d'une demande : "a" (accepter), "w" (en réserve), "r" (pas retenu), ou nil pour
+-- la remettre en attente. Le créateur et les officiers seulement. force : ne pas vérifier
+-- les places (le créateur qui s'inscrit lui-même ; la liste d'attente fait le reste).
+function Cal:SetVerdict(eventId, charName, v, force)
+  local ev = self:Get(eventId)
+  if not ev then return false, "Sortie introuvable." end
+  if not ev.ap then return false, "Cette sortie n'est pas sur validation." end
+  if not self:CanEdit(ev) then return false, "Seuls l'organisateur et les officiers décident." end
+  local signup = Store:Get("signups", eventId .. "|" .. charName)
+  if not signup then return false, "Cette inscription n'existe plus." end
+  if v ~= nil and not Cal.VERDICTS[v] then return false, "Décision inconnue." end
+  if v == "a" and signup.s == "yes" and not force then
+    local cap = Cal.Capacity(ev)
+    if cap then
+      local taken = 0
+      for _, e in ipairs(self:Entries(ev)) do
+        if e.state == "in" and e.s.s == "yes" and e.s.c ~= charName then taken = taken + 1 end
+      end
+      if taken >= cap then return false, "La sortie est complète : mets-le en réserve." end
+    end
+  end
+  if v == nil then
+    Store:Delete("verdicts", eventId .. "|" .. charName)
+  else
+    Store:Put("verdicts", { e = eventId, c = charName, v = v })
+  end
+  DR:Emit("SIGNUP_CHANGED", eventId)
+  return true
+end
+
+-- Les sorties dont j'ai des demandes à décider : les miennes, et pour un officier
+-- celles qui commencent dans moins de 24 h (à la place de l'organisateur).
+-- Rend { ev, n, mine } par sortie.
+function Cal:ToJudge()
+  local out, now = {}, Util.Now()
+  if not Store:IsReady() then return out end
+  for _, ev in ipairs(self:Upcoming(60)) do
+    if ev.ap and ev.st ~= "cancelled" then
+      local mine = ev.own ~= nil and DR.Profile:IsMine(ev.own)
+      if mine or (DR.Guild:IAmOfficer() and (ev.d or 0) - now <= Cal.ATTENTION) then
+        local n = #self:Pending(ev)
+        if n > 0 then out[#out + 1] = { ev = ev, n = n, mine = mine } end
+      end
+    end
+  end
+  return out
 end
 
 function Cal:NewId()
@@ -397,6 +517,13 @@ function Cal:SaveEvent(fields)
     ap = fields.ap and 1 or nil,
   }
   local written = Store:Put("events", rec)
+  -- On passe en « sur validation » : ceux qui étaient déjà inscrits sont acceptés,
+  -- sinon ils retomberaient tous en attente.
+  if rec.ap and not (old and old.ap) then
+    for _, sg in ipairs(Store:List("signups", function(x) return x.e == rec.id and x.s ~= "no" end)) do
+      Store:Put("verdicts", { e = rec.id, c = sg.c, v = "a" })
+    end
+  end
   DR:Emit("EVENTS_CHANGED")
   return written or rec
 end
@@ -417,4 +544,84 @@ function Cal:Delete(id)
   Store:Delete("events", id)
   DR:Emit("EVENTS_CHANGED")
   return true
+end
+
+---------------------------------------------------------------------------
+-- Prévenir sans déranger
+---------------------------------------------------------------------------
+-- Une ligne dans la discussion, jamais en combat ni pendant un boss, et jamais plus
+-- d'une fois par `gap` secondes pour la même raison. La pastille de l'onglet Sorties
+-- reste là pour ce que la discussion a laissé passer.
+local told = {}
+
+local function tell(key, gap, text)
+  local now = Util.Now()
+  if told[key] and now - told[key] < gap then return false end
+  if DR.Guard.InCombat() or DR.Guard.ChatLocked() then return false end
+  told[key] = now
+  DR:Print(text)
+  return true
+end
+
+local function recent(rec) return (rec.u or 0) > Util.Now() - 600 end
+
+local DECISION_TEXT = {
+  a = "est acceptée. À tout à l'heure !",
+  w = "est en réserve : l'organisateur te garde sous le coude.",
+  r = "n'est pas retenue cette fois.",
+}
+
+function Cal:OnLogin()
+  -- Une demande qui arrive (organisateur), une décision qui arrive (demandeur).
+  DR:Listen("DATA_CHANGED", function(ds, _, rec, _, origin)
+    if origin ~= "remote" or not rec or rec.del or not recent(rec) then return end
+    if ds == "signups" and rec.s ~= "no" then
+      local ev = Cal:Get(rec.e)
+      if ev and ev.ap and ev.own and DR.Profile:IsMine(ev.own) and not DR.Profile:IsMine(rec.c) then
+        local n = #Cal:Pending(ev)
+        if n > 0 then
+          tell("req:" .. ev.id, 600, n == 1
+            and (Util.ShortName(rec.c) .. " demande à rejoindre « " .. ev.t .. " ». Onglet Sorties pour répondre.")
+            or (n .. " demandes à valider pour « " .. ev.t .. " ». Onglet Sorties."))
+        end
+      end
+    elseif ds == "verdicts" and DR.Profile:IsMine(rec.c) and DECISION_TEXT[rec.v] then
+      local ev = Cal:Get(rec.e)
+      if ev then tell("ver:" .. rec.e .. rec.v, 5, "Ta demande pour « " .. ev.t .. " » " .. DECISION_TEXT[rec.v]) end
+    end
+  end)
+  -- Une fois connecté et la synchro faite : un résumé, puis un rappel toutes les 10 minutes
+  -- pour les sorties qui commencent dans moins de 24 h.
+  DR.After(45, function() Cal:LoginSummary() end)
+  DR.Every(600, function() Cal:Remind() end)
+end
+
+function Cal:LoginSummary()
+  local total, first = 0, nil
+  for _, j in ipairs(self:ToJudge()) do
+    if j.mine then
+      total = total + j.n
+      first = first or j.ev.t
+    end
+  end
+  if total > 0 then
+    tell("login", 3600, total .. (total > 1 and " demandes attendent" or " demande attend") .. " ta réponse pour « "
+      .. first .. " ». Onglet Sorties.")
+  end
+end
+
+-- Moins de 24 h avant le début : il reste des demandes sans réponse.
+function Cal:Remind()
+  for _, j in ipairs(self:ToJudge()) do
+    local ev = j.ev
+    if (ev.d or 0) - Util.Now() <= Cal.ATTENTION then
+      if j.mine then
+        tell("late:" .. ev.id, 6 * 3600, "Il reste " .. j.n .. (j.n > 1 and " demandes" or " demande") .. " sans réponse pour « "
+          .. ev.t .. " » (" .. Util.Until(ev.d) .. ").")
+      else
+        tell("late:" .. ev.id, 6 * 3600, "« " .. ev.t .. " » : " .. j.n .. (j.n > 1 and " demandes" or " demande")
+          .. " sans réponse (organisateur : " .. Util.ShortName(ev.own or "?") .. "). Tu peux les décider à sa place.")
+      end
+    end
+  end
 end

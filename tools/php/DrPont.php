@@ -26,6 +26,7 @@ final class DrPont
         'meta'    => ['id'],
         'goals'   => ['id'],
         'gifts'   => ['id'],
+        'verdicts' => ['e', 'c'],
     ];
 
     /** Lit un code collé. Lève InvalidArgumentException avec un message en français. */

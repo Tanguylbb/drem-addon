@@ -30,12 +30,12 @@ DR2:<JSON encodé en Base64 standard>
 | `g`     | Nom de la guilde (codes du jeu). |
 | `av`    | Version de l'add-on (codes du jeu). |
 | `since` | Codes du jeu : le code contient ce qui a changé depuis cette date (0 = tout). |
-| `events`, `signups`, `chars`, `recipes`, `orders`, `votes`, `meta`, `goals`, `gifts` | Listes d'enregistrements, détaillées plus bas. Une liste vide est absente. |
+| `events`, `signups`, `verdicts`, `chars`, `recipes`, `orders`, `votes`, `meta`, `goals`, `gifts` | Listes d'enregistrements, détaillées plus bas. Une liste vide est absente. |
 
 Ce que chaque sens transporte :
 
-- **Jeu → site** : `events`, `signups`, `chars`, `recipes`, `orders`, `votes`, `goals`, `gifts`.
-- **Site → jeu** : `events`, `signups`, `orders`, `votes`, `meta`, `goals`.
+- **Jeu → site** : `events`, `signups`, `verdicts`, `chars`, `recipes`, `orders`, `votes`, `goals`, `gifts`.
+- **Site → jeu** : `events`, `signups`, `verdicts`, `orders`, `votes`, `meta`, `goals`.
   Les enregistrements sans `by` sont signés `"site"` à l'import.
 
 ## La règle de fusion
@@ -84,6 +84,7 @@ sont absents quand ils sont vides.
 | `st`  | texte | `open`, `closed` (inscriptions fermées) ou `cancelled`. |
 | `lock` | nombre | Fermeture automatique des inscriptions (facultatif). |
 | `src` | texte | `site` ou `jeu`. |
+| `ap`  | nombre | `1` : **inscriptions sur validation** (0.6). Chaque inscription est une demande que le créateur accepte, met en réserve ou ne retient pas (voir `verdicts`). Absent : inscriptions libres. |
 | `own` | texte | **Créateur** de la sortie (0.5) : le perso qui l'a créée en jeu, nom complet. Il ne change pas quand quelqu'un d'autre modifie. Absent pour une sortie venue du site. |
 
 **Qui peut créer et modifier (0.5)** : les officiers créent et modifient toutes les
@@ -111,6 +112,40 @@ officiers. Le site, signé `"site"`, peut tout.
 
 Un seul perso par compte et par sortie : en changer supprime l'autre (pierre
 tombale).
+
+### `verdicts` : décisions sur les demandes — clé `e|c` (0.6)
+
+Pour une sortie **sur validation** (`ap = 1`), l'inscription d'un membre est une
+demande ; la décision est un enregistrement à part, écrit par le créateur de la
+sortie (`own`) ou un officier, pour que le membre et le créateur ne s'écrasent pas
+l'un l'autre. Sans décision, la demande est « en attente ».
+
+| Champ | Sens |
+|-------|------|
+| `e`   | Id de la sortie. |
+| `c`   | Perso demandeur (le `c` de l'inscription). |
+| `v`   | `a` accepté, `w` en réserve, `r` pas retenu. |
+
+`by` est l'auteur de la décision. **Une décision dont l'auteur n'est ni officier,
+ni `"site"`, ni le créateur de la sortie (même perso ou même compte) est
+ignorée**, à la réception et à la lecture. Supprimer la décision (pierre tombale)
+remet la demande en attente. Un « Absent » (`s = "no"`) n'a pas besoin de décision.
+
+Ce qui compte, calculé de la même façon partout :
+
+- sortie libre : tout « présent », « peut-être » et « remplaçant » compte ;
+- sur validation : seuls les **acceptés** comptent ; « en réserve » et « pas
+  retenu » ne comptent pas ; une demande en attente n'est pas comptée ;
+- places (`cap`) : parmi les « présent » qui comptent, les premiers (par `ft`,
+  puis `u`, puis nom) prennent les places, les suivants sont en **liste d'attente**
+  (rang 1, 2…) et montent seuls quand une place se libère ; « peut-être » et
+  « remplaçant » ne prennent pas de place ;
+- le créateur et les officiers qui s'inscrivent à une sortie sur validation sont
+  acceptés d'office (l'add-on écrit la décision `a`) ;
+- passer une sortie en « sur validation » accepte ceux qui étaient déjà inscrits ;
+- 24 h avant le début, les officiers voient les demandes sans réponse ; à l'heure
+  de la sortie, une demande restée sans réponse est affichée « sans réponse » et ne
+  compte pas. Rien n'est annulé en silence avant.
 
 ### `chars` : fiches perso — clé `n`
 

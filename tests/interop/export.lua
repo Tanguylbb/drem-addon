@@ -15,6 +15,13 @@ net:Advance(5)
 -- Une sortie créée par un membre (0.5) : le créateur et les places partent au site.
 assert(B.DR.Calendar:SaveEvent({ t = "Soirée d’entraide", k = "soiree", d = net:ServerTime() + 2 * 86400, cap = 6 }))
 net:Advance(5)
+-- Une sortie sur validation (0.6) : une inscription, une décision du créateur.
+local sv = assert(B.DR.Calendar:SaveEvent({ t = "Donjon à valider", k = "donjon", d = net:ServerTime() + 3 * 86400, ap = true }))
+net:Advance(5)
+A.DR.Calendar:SetSignup(sv.id, nil, "yes", "T")
+net:Advance(3)
+B.DR.Calendar:SetVerdict(sv.id, "Shenryu-Rempart", "w")
+net:Advance(5)
 B.DR.Calendar:SetSignup(ev.id, nil, "yes", "H", "je ramène des fioles « bleues »")
 B.DR.Crafts:Wish("|cff71d5ff|Hspell:17635:0|h[Flacon des Titans]|h|r", { id = 171, name = "Alchimie" })
 net:Advance(10)

@@ -67,6 +67,34 @@ Il faut deux persos : O (officier) et M (membre simple).
 - [ ] M annule sa sortie (formulaire, « Annuler la sortie ») : elle apparaît
       annulée chez tous ; « Rétablir la sortie » la remet.
 
+### 2 ter. Inscriptions sur validation (0.6, 8 min)
+
+Trois persos : O (officier), C (créateur, membre simple) et D (demandeur, membre simple).
+
+- [ ] C crée un donjon, bouton **Validation** à « Inscriptions » (ou O crée un raid :
+      c'est le choix par défaut). La fiche porte l'étiquette « Sur validation ».
+- [ ] D s'inscrit « Présent » : sa ligne d'état dit « Ta demande attend la
+      validation de C ». D ne compte pas dans les présents ; la liste de la fiche
+      dit « 1 demande attend une décision ».
+- [ ] **C reçoit une ligne dans la discussion** (« D demande à rejoindre … ») et la
+      pastille de l'onglet Sorties monte. Une 2ᵉ demande dans les 10 minutes ne
+      redonne pas de ligne, la pastille monte quand même.
+- [ ] C : bouton « Demandes » sur la fiche, puis **Accepter** D. D reçoit une ligne
+      « Ta demande … est acceptée », sa ligne d'état passe au vert et il compte.
+- [ ] C met un autre demandeur **En réserve** puis **Refuser** : le demandeur voit
+      « En réserve » puis « Pas retenu cette fois » ; les autres membres ne voient
+      pas « pas retenu ».
+- [ ] « Classes acceptées » montre les classes ; une 3ᵉ demande de la même classe
+      porte « déjà 2 de sa classe ».
+- [ ] Places : avec 2 places et 2 acceptés, **Accepter** est grisé pour un 3ᵉ
+      demandeur, Réserve reste possible.
+- [ ] O (pas créateur) : voit les demandes d'une sortie qui commence dans moins de
+      24 h et peut les décider ; pour une sortie dans 3 jours, il n'a pas de pastille.
+- [ ] Combat : une demande qui arrive en combat ne donne pas de ligne, la pastille
+      la montre ensuite.
+- [ ] La sortie commence sans réponse à une demande : elle passe en « Pas de réponse
+      de C : la sortie a commencé. »
+
 ## 3. Artisans (6 min)
 
 - [ ] O (ou M) ouvre sa fenêtre de métier : le chat dit « N recettes lues et

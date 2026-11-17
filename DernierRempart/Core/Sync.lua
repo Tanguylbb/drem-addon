@@ -126,6 +126,9 @@ function Sync:Accept(ds, rec)
     -- Officiers et site : tout. Un membre : seulement ses propres sorties, jamais un raid.
     return DR.Calendar.AcceptEvent(rec, Store:GetRaw("events", Store.KeyOf("events", rec)))
   end
+  if ds == "verdicts" then
+    return DR.Calendar.AcceptVerdict(rec, Store:Get("events", rec.e))
+  end
   if ds == "meta" then
     if rec.id == "config" then
       local m = Guild:Get(rec.by or "")

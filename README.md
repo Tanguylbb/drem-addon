@@ -43,6 +43,19 @@ d'inscription, et montent tout seuls si une place se libère. « Peut-être » e
 « Remplaçant » ne prennent pas de place. Les add-ons refusent ce qu'un membre n'a
 pas le droit de faire (un raid, la sortie d'un autre).
 
+**Inscriptions sur validation** (par défaut pour un raid, au choix pour le reste) :
+chaque inscription est une **demande**. Le créateur (ou un officier) ouvre
+« Demandes » sur la fiche et choisit pour chacune : **Accepter**, **Réserve** ou
+**Refuser**. Seuls les acceptés comptent dans la composition. Le panneau montre les
+classes déjà acceptées (« Mage 3 · Prêtre 2 ») et prévient quand une classe est
+déjà prise. Le demandeur voit où en est sa demande et reçoit une ligne dans la
+discussion quand on lui répond ; « pas retenu » n'est visible que de lui et du
+créateur. Le créateur reçoit une ligne par demande (au plus une toutes les dix
+minutes, jamais en combat ni pendant un boss) et une pastille sur l'onglet Sorties.
+Rien n'est annulé en silence : 24 h avant la sortie, les officiers voient les demandes
+sans réponse et peuvent les décider à la place du créateur ; une fois la sortie
+commencée, elles passent en « sans réponse ».
+
 Le créateur et les officiers voient en plus : combien ont répondu, combien n'ont
 pas répondu, combien n'ont pas l'add-on, et « Relancer » (qui chuchoter). Une bande
 ambre « Redemander » n'apparaît que si la guilde ne répond plus.

@@ -278,6 +278,16 @@ function Util.ClassName(full, classFile)
   return "|cff" .. Util.ClassHex(classFile) .. Util.ShortName(full) .. "|r"
 end
 
+-- Le nom de la classe en français (le fichier de classe donne PALADIN, MAGE…).
+Util.CLASS_FR = {
+  WARRIOR = "Guerrier", PALADIN = "Paladin", HUNTER = "Chasseur", ROGUE = "Voleur", PRIEST = "Prêtre",
+  DEATHKNIGHT = "Chevalier de la mort", SHAMAN = "Chaman", MAGE = "Mage", WARLOCK = "Démoniste",
+  MONK = "Moine", DRUID = "Druide", DEMONHUNTER = "Chasseur de démons", EVOKER = "Évocateur",
+}
+function Util.ClassLabel(classFile)
+  return Util.CLASS_FR[classFile or ""] or "?"
+end
+
 ---------------------------------------------------------------------------
 -- Tables
 ---------------------------------------------------------------------------

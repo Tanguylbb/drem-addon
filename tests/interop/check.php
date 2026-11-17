@@ -36,11 +36,14 @@ foreach ($payload['signups'] as $s) {
 }
 check($signup !== null && $signup['m'] === 'je ramène des fioles « bleues »', 'petit mot intact');
 check(DrPont::keyOf('signups', $signup) === $signup['e'] . '|Brumelune-Rempart', 'clé d\'inscription');
+$verdict = $payload['verdicts'][0] ?? null;
+check($verdict !== null && $verdict['v'] === 'w' && $verdict['c'] === 'Shenryu-Rempart'
+    && DrPont::keyOf('verdicts', $verdict) === $verdict['e'] . '|Shenryu-Rempart', 'décision du créateur (verdicts) : clé e|c');
 $recipes = $payload['recipes'][0] ?? null;
 check($recipes !== null && $recipes['l'] === [3451] && $recipes['pn'] === 'Alchimie', 'recettes lues');
 $wish = $payload['orders'][0] ?? null;
 check($wish !== null && $wish['sp'] === 17635 && $wish['k'] === 'recette', 'recette recherchée');
-foreach (['events', 'signups', 'chars', 'recipes', 'orders', 'votes', 'goals', 'gifts'] as $ds) {
+foreach (['events', 'signups', 'verdicts', 'chars', 'recipes', 'orders', 'votes', 'goals', 'gifts'] as $ds) {
     $good = true;
     foreach ($payload[$ds] ?? [] as $rec) {
         $good = $good && DrPont::keyOf($ds, $rec) !== null && is_int($rec['u']);

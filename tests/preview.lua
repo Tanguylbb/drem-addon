@@ -124,7 +124,8 @@ local E = A.DR.Calendar
 local evSoiree = E:SaveEvent({ t = N("Sac de couchage", "Soirée de guilde : défi des maîtres du donjon de Brassenoire"), k = "soiree", d = at(1, 21), dur = 120 })
 local evDonjon = E:SaveEvent({ t = N("Profondeurs de Brassenoire", "Profondeurs de Brassenoire en mode héroïque avec les nouveaux"), k = "donjon", d = at(2, 20), dur = 150, cap = 5, nt = 1, nh = 1, nd = 3 })
 local evRaid = E:SaveEvent({ t = N("Cœur du Magma", "Cœur du Magma : première nuit de progression en mode mythique"), k = "raid", d = at(4, 21), dur = 180, cap = 10, nt = 2, nh = 4, nd = 10,
-  lead = "Shenryu Valdor", rdv = N("Entrée du repaire", "Devant l'entrée du repaire, côté pont de pierre"), note = "Potions de résistance au feu, nourriture" })
+  lead = "Shenryu Valdor", rdv = N("Entrée du repaire", "Devant l'entrée du repaire, côté pont de pierre"), note = "Potions de résistance au feu, nourriture",
+  ap = true })
 -- Un donjon créé par un membre, à cinq places : complet, avec une liste d'attente.
 local evMembre = clients[2].DR.Calendar:SaveEvent({ t = N("Brassenoire entre amis", "Brassenoire en mode héroïque avec les nouveaux de la guilde"),
   k = "donjon", d = at(3, 20), dur = 120, cap = 3, nt = 1, nh = 1, nd = 1, rdv = "Devant l'entrée" })
@@ -137,6 +138,11 @@ for i = 2, 6 do
   clients[i].DR.Calendar:SetSignup(evRaid.id, clients[i].DR.playerName, answers[i - 1], roles[i - 1])
 end
 net:Advance(8)
+-- Le raid est sur validation : deux acceptés, un en réserve, le reste attend.
+A.DR.Calendar:SetVerdict(evRaid.id, clients[2].DR.playerName, "a")
+A.DR.Calendar:SetVerdict(evRaid.id, clients[3].DR.playerName, "a")
+A.DR.Calendar:SetVerdict(evRaid.id, clients[6].DR.playerName, "w")
+net:Advance(4)
 for i, role in ipairs({ "T", "H", "D", "D", "H" }) do
   clients[i + 1].DR.Calendar:SetSignup(evMembre.id, clients[i + 1].DR.playerName, "yes", role)
   net:Advance(2)
@@ -351,6 +357,18 @@ A.DR.Sync.lastRequest = A.DR.Util.Now() - 3600
 ui.tabs.sorties:Refresh()
 dump("sorties-retard")
 
+-- Le raid sur validation vu par l'officier : le bouton Demandes, puis le panneau.
+A:Slash("sorties")
+ui.tabs.sorties.selected = evRaid.id
+ui.tabs.sorties.answerFor = nil
+ui.tabs.sorties:Refresh()
+dump("sorties-validation")
+ui.tabs.sorties:OpenReview()
+ui.tabs.sorties.detail:Hide()
+dump("sorties-demandes")
+ui.tabs.sorties.detail:Show()
+ui.tabs.sorties.review:Hide()
+
 -- Une sortie de membre, complète : la barre des places et la liste d'attente.
 A:Slash("sorties")
 ui.tabs.sorties.selected = evMembre.id
@@ -368,6 +386,19 @@ for _, tab in ipairs({ "sorties", "artisans", "carte", "effort" }) do
   net:Advance(3)
   dump("membre-" .. tab)
 end
+
+-- Un membre dont la demande attend : sa ligne d'état.
+A = clients[4]
+ui = A.DR.UI
+A.DR.db.settings.window = { point = "TOPLEFT", relPoint = "TOPLEFT", x = 50, y = -40 }
+ui:Build()
+A:Slash("sorties")
+ui.tabs.sorties.selected = evRaid.id
+ui.tabs.sorties.answerFor = nil
+ui.tabs.sorties:Refresh()
+dump("membre-sorties-demande")
+A = clients[2]
+ui = A.DR.UI
 
 -- Le membre voit « Nouvelle sortie » : le formulaire sans Raid, et sa propre sortie avec ses boutons.
 A:Slash("sorties")
