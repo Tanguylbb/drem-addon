@@ -46,6 +46,27 @@ capture) ou « bizarre ».
 - [ ] Pendant un combat de boss (si possible) : rien ne casse, et une
       inscription faite juste avant part après le combat.
 
+### 2 bis. Sorties créées par les membres (0.5, 8 min)
+
+Il faut deux persos : O (officier) et M (membre simple).
+
+- [ ] M : « + Nouvelle sortie » est visible. Le type **Raid est grisé** (infobulle :
+      réservé aux officiers). Donjon propose 5 places et 1 / 1 / 3.
+- [ ] M crée un donjon à 3 places. O le voit arriver ; la fiche dit « Organisateur :
+      M ». M a « Modifier » et « Fermer » ; un 3ᵉ membre ne les a pas.
+- [ ] O crée un raid : M ne peut pas le modifier (pas de boutons).
+- [ ] M essaie de créer 6 sorties : à la 6ᵉ, le message dit « 5 sorties à venir ».
+- [ ] Une soirée « Sans rôle » : la fiche n'a **pas** de ligne « Mon rôle » et affiche
+      une barre « Places » si des places sont fixées.
+- [ ] Donjon à 3 places : trois membres disent « Présent », un 4ᵉ aussi : il est
+      **en liste d'attente n° 1** (toast, ligne ambre, glyphe « A » dans la liste).
+      Un des trois passe en « Absent » : le 4ᵉ monte tout seul, chez tout le monde.
+- [ ] Changer de rôle après avoir répondu ne fait pas perdre sa place ; passer en
+      « Absent » puis revenir fait repartir au bout de la file.
+- [ ] M : « Modifier » sur sa sortie, changer l'heure : O la voit changer.
+- [ ] M annule sa sortie (formulaire, « Annuler la sortie ») : elle apparaît
+      annulée chez tous ; « Rétablir la sortie » la remet.
+
 ## 3. Artisans (6 min)
 
 - [ ] O (ou M) ouvre sa fenêtre de métier : le chat dit « N recettes lues et

@@ -12,6 +12,9 @@ A.tradeskill = { id = 171, name = "Alchimie", all = { 3451, 17556 }, learned = {
 A:Fire("TRADE_SKILL_SHOW")
 local ev = A.DR.Calendar:SaveEvent({ t = "Repaire d’Onyxia", k = "raid", d = net:ServerTime() + 86400, nt = 4, nh = 10, nd = 26 })
 net:Advance(5)
+-- Une sortie créée par un membre (0.5) : le créateur et les places partent au site.
+assert(B.DR.Calendar:SaveEvent({ t = "Soirée d’entraide", k = "soiree", d = net:ServerTime() + 2 * 86400, cap = 6 }))
+net:Advance(5)
 B.DR.Calendar:SetSignup(ev.id, nil, "yes", "H", "je ramène des fioles « bleues »")
 B.DR.Crafts:Wish("|cff71d5ff|Hspell:17635:0|h[Flacon des Titans]|h|r", { id = 171, name = "Alchimie" })
 net:Advance(10)

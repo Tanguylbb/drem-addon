@@ -76,16 +76,25 @@ sont absents quand ils sont vides.
 | `k`   | texte | `raid`, `donjon`, `soiree` ou `autre`. |
 | `d`   | nombre | Début (horodatage). |
 | `dur` | nombre | Durée en minutes. |
-| `cap` | nombre | Places. |
-| `nt`, `nh`, `nd` | nombres | Tanks, soins, DPS voulus. |
+| `cap` | nombre | Places. Absent ou `0` : pas de limite. Quand les « présent » dépassent les places, les derniers inscrits (voir `ft`) sont en **liste d'attente** : calculée, jamais écrite, tout le monde obtient le même résultat. |
+| `nt`, `nh`, `nd` | nombres | Tanks, soins, DPS voulus. Tous à `0` : **sortie sans rôle** (soirée de guilde, entraide), personne n'a de rôle à choisir. |
 | `lead` | texte | Chef de raid. |
 | `rdv` | texte (120) | Rendez-vous. |
 | `note` | texte (500) | Consignes. |
 | `st`  | texte | `open`, `closed` (inscriptions fermées) ou `cancelled`. |
 | `lock` | nombre | Fermeture automatique des inscriptions (facultatif). |
 | `src` | texte | `site` ou `jeu`. |
+| `own` | texte | **Créateur** de la sortie (0.5) : le perso qui l'a créée en jeu, nom complet. Il ne change pas quand quelqu'un d'autre modifie. Absent pour une sortie venue du site. |
 
-En jeu, seuls les officiers créent et modifient les sorties.
+**Qui peut créer et modifier (0.5)** : les officiers créent et modifient toutes les
+sorties. Un membre crée des donjons, soirées et « autre » (**jamais un raid**), au
+plus 5 sorties à venir à la fois et pas plus de 60 jours devant, et ne modifie, ne
+ferme, n'annule ou ne supprime que les siennes (`own`). Les add-ons refusent tout
+le reste à la réception : une sortie de type `raid` écrite par un non-officier, une
+modification dont l'auteur (`by`) n'est ni officier, ni le créateur (même perso ou
+même compte), une suppression par un autre que le créateur. Une sortie sans `own`
+(créée par un officier avant la 0.5, ou venue du site) n'est modifiable que par les
+officiers. Le site, signé `"site"`, peut tout.
 
 ### `signups` : inscriptions — clé `e|c`
 
@@ -98,6 +107,7 @@ En jeu, seuls les officiers créent et modifient les sorties.
 | `s`   | `yes` présent, `maybe` peut-être, `bench` remplaçant, `no` absent. |
 | `m`   | Petit mot (60). |
 | `acc` | Identifiant du compte (au hasard, sert à repérer les persos d'un même joueur). |
+| `ft`  | Depuis quand il est « présent » (secondes). Garde sa place dans la file d'attente tant qu'il reste présent, et change de rôle sans la perdre ; s'il passe à autre chose puis revient, `ft` repart de maintenant. Facultatif : à défaut, `u`. |
 
 Un seul perso par compte et par sortie : en changer supprime l'autre (pierre
 tombale).

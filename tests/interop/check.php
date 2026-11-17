@@ -14,7 +14,20 @@ function check(bool $cond, string $msg): void
 
 $payload = DrPont::decode(file_get_contents($argv[1]));
 check($payload['src'] === 'jeu', 'le code vient du jeu');
-check(isset($payload['events'][0]['t']) && $payload['events'][0]['t'] === 'Repaire d’Onyxia', 'titre accentué intact');
+$raid = null;
+$entraide = null;
+foreach ($payload['events'] as $e) {
+    if ($e['t'] === 'Repaire d’Onyxia') {
+        $raid = $e;
+    }
+    if ($e['t'] === 'Soirée d’entraide') {
+        $entraide = $e;
+    }
+}
+check($raid !== null, 'titre accentué intact');
+check($entraide !== null && $entraide['own'] === 'Brumelune-Rempart' && $entraide['cap'] === 6 && $entraide['k'] === 'soiree',
+    'sortie de membre : créateur (own) et places (cap)');
+check(($raid['own'] ?? null) === 'Shenryu-Rempart', 'sortie d\'officier : créateur écrit aussi');
 $signup = null;
 foreach ($payload['signups'] as $s) {
     if ($s['c'] === 'Brumelune-Rempart') {
@@ -57,7 +70,6 @@ check(DrPont::canon($lua['signups'][0]) === DrPont::canon($payload['signups'][0]
 
 // Le site renvoie une sortie, une inscription faite sur le site et une suppression.
 $now = time();
-$event = $payload['events'][0];
 $site = [
     'at' => $now - 60,
     'events' => [

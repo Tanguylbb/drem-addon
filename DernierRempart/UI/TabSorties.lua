@@ -16,7 +16,7 @@ Tab.tip = "Les raids, donjons et soirées de la guilde, et ta réponse."
 local LIST_W = 300
 local ROW_H = 54
 local TOP = 30 -- la pastille de compte, au-dessus des deux colonnes
-local GROUP_LABEL = { yes = "Présents", maybe = "Peut-être", bench = "Remplaçants", no = "Absents" }
+local GROUP_LABEL = { yes = "Présents", maybe = "Peut-être", bench = "Remplaçants", wait = "Liste d'attente", no = "Absents" }
 local NEED_LABEL = { T = "Tanks voulus", H = "Soins voulus", D = "DPS voulus" }
 local BAR_LABEL = { T = "Tanks", H = "Soins", D = "DPS" }
 
@@ -98,7 +98,8 @@ local function updateRow(row, ev)
     setStat(row.stat, "x", C.red)
   elseif mine then
     local sc = statusColor(mine.s)
-    if mine.s == "yes" then setStat(row.stat, "check", C.green)
+    if mine.s == "yes" and (Cal:MyState(ev.id)) == "wait" then setStat(row.stat, "A", C.amber)
+    elseif mine.s == "yes" then setStat(row.stat, "check", C.green)
     elseif mine.s == "maybe" then setStat(row.stat, "?", sc)
     elseif mine.s == "bench" then setStat(row.stat, "R", sc)
     else setStat(row.stat, "-", C.red) end
@@ -179,7 +180,7 @@ function Tab:Create(f, width, height)
   strip:Hide()
   self.strip = strip
 
-  self.newBtn = W.Button(f, "+ Nouvelle sortie  |cff9A9180(officiers)|r", "sec", LIST_W, 26)
+  self.newBtn = W.Button(f, "+ Nouvelle sortie", "sec", LIST_W, 26)
   self.newBtn:SetPoint("BOTTOMLEFT", 0, 0)
   self.newBtn:SetScript("OnClick", function() self:OpenForm(nil) end)
 
@@ -235,15 +236,18 @@ function Tab:BuildDetail(d, w, h)
     bar:SetPoint("TOPLEFT", pad + (i - 1) * (bw + 8), -86)
     d.needs[role] = bar
   end
+  d.capBar = W.Bar(body, inner, 18)
+  d.capBar:SetPoint("TOPLEFT", pad, -86)
   d.missing = T.Text(body, "semi", 12, C.amber)
   d.missing:SetPoint("TOPLEFT", pad, -110)
+  d.missing:SetPoint("RIGHT", -pad, 0)
 
   d.info = T.Para(body, "body", 12, C.ivory, inner)
   d.info:SetPoint("TOPLEFT", pad, -132)
-  d.info:SetMaxLines(3)
+  d.info:SetMaxLines(4)
 
   -- Ma réponse : d'abord le rôle (quand la sortie en demande), puis la réponse.
-  local y = -178
+  local y = -194
   d.y = y
   d.ansHeader = W.Header(body, inner)
   d.ansHeader:SetPoint("TOPLEFT", pad, y)
@@ -332,7 +336,7 @@ function Tab:BuildDetail(d, w, h)
   d.seenLabel:SetPoint("LEFT", 0, -2)
   d.seenLabel:SetText("OFFICIERS")
   d.seenText = T.Text(seen, "body", 12, C.brume)
-  d.seenText:SetPoint("LEFT", 66, -2)
+  d.seenText:SetPoint("LEFT", 100, -2)
   d.seenText:SetPoint("RIGHT", -84, 0)
   d.remind = W.Button(seen, "Relancer", "sec", 76, 22)
   d.remind:SetPoint("RIGHT", 0, -2)
@@ -355,6 +359,9 @@ local function labeled(parent, text, x, y)
   return l
 end
 
+-- Suggestions à la création : un donjon à cinq (1 tank, 1 soin, 3 DPS).
+local DEFAULTS = { donjon = { cap = "5", T = "1", H = "1", D = "3" } }
+
 function Tab:BuildForm(f, w, h)
   local form = T.Card(f)
   form:SetPoint("TOPLEFT", LIST_W + 10, -TOP)
@@ -367,26 +374,30 @@ function Tab:BuildForm(f, w, h)
 
   form.heading = T.Text(form, "title", 20, C.goldText)
   form.heading:SetPoint("TOPLEFT", pad, -pad)
+  form.heading:SetPoint("RIGHT", -pad, 0)
 
   local y = -54
   labeled(form, "Titre", pad, y)
   form.t = W.Edit(form, w - 2 * pad, 26, "Barrow Deeps, Onyxia, soirée pêche…", 80)
   form.t:SetPoint("TOPLEFT", pad, y - 16)
 
+  -- Type, et le nombre de places.
   y = y - 54
   labeled(form, "Type", pad, y)
   form.kinds = {}
   local x = pad
   for _, k in ipairs(Cal.KIND_ORDER) do
-    local b = W.Button(form, Cal.KINDS[k].label, "toggle", 92, 26)
+    local b = W.Button(form, Cal.KINDS[k].label, "toggle", 88, 26)
     b:SetPoint("TOPLEFT", x, y - 16)
-    b:SetScript("OnClick", function()
-      form.kind = k
-      for kk, bb in pairs(form.kinds) do bb:SetActive(kk == k) end
-    end)
+    b:SetScript("OnClick", function() self:SetFormKind(k) end)
     form.kinds[k] = b
-    x = x + 98
+    x = x + 94
   end
+  W.Tip(form.kinds.raid, "Raid", "Les raids sont réservés aux officiers.")
+  labeled(form, "Places", pad + 384, y)
+  form.cap = W.Edit(form, w - 2 * pad - 384, 26, "illimité", 3)
+  form.cap:SetPoint("TOPLEFT", pad + 384, y - 16)
+  W.Tip(form.cap, "Places", "Nombre de joueurs. Vide ou 0 : pas de limite. Quand c'est plein, les suivants passent en liste d'attente et montent tout seuls si une place se libère.")
 
   y = y - 54
   labeled(form, "Date (JJ/MM/AAAA)", pad, y)
@@ -398,23 +409,41 @@ function Tab:BuildForm(f, w, h)
   labeled(form, "Durée (min)", pad + 234, y)
   form.dur = W.Edit(form, 80, 26, "150", 4)
   form.dur:SetPoint("TOPLEFT", pad + 234, y - 16)
-  labeled(form, "Places", pad + 326, y)
-  form.cap = W.Edit(form, 70, 26, "10", 3)
-  form.cap:SetPoint("TOPLEFT", pad + 326, y - 16)
+  form.rowDate = y
 
+  -- Rôles : aucun (soirée de guilde…), ou une composition.
   y = y - 54
-  form.needs = {}
-  x = pad
+  labeled(form, "Rôles", pad, y)
+  form.roleModes = {}
+  for i, mode in ipairs({ "none", "comp" }) do
+    local b = W.Button(form, mode == "none" and "Sans rôle" or "Composition", "toggle", 98, 26)
+    b:SetPoint("TOPLEFT", pad + (i - 1) * 104, y - 16)
+    b:SetScript("OnClick", function() form.roleTouched = true; self:SetFormRoleMode(mode) end)
+    form.roleModes[mode] = b
+  end
+  W.Tip(form.roleModes.none, "Sans rôle", "Personne n'a de rôle à choisir : soirée de guilde, entraide…")
+  W.Tip(form.roleModes.comp, "Composition", "Combien de tanks, de soins et de DPS il faut. Chacun choisit son rôle en s'inscrivant, et un compteur montre ce qui manque.")
+  form.needs, form.needBoxes = {}, {}
+  x = pad + 222
   for _, role in ipairs(Util.ROLES) do
-    labeled(form, NEED_LABEL[role], x, y)
-    local e = W.Edit(form, 90, 26, "0", 2)
-    e:SetPoint("TOPLEFT", x, y - 16)
+    local box = CreateFrame("Frame", nil, form)
+    box:SetPoint("TOPLEFT", x, y - 16)
+    box:SetSize(78, 26)
+    local icon = box:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(16, 16)
+    icon:SetPoint("LEFT", 0, 0)
+    icon:SetTexture(T.Icon(T.ROLE_ICON[role]))
+    icon:SetVertexColor(C.brume[1], C.brume[2], C.brume[3])
+    local e = W.Edit(box, 54, 26, "0", 2)
+    e:SetPoint("LEFT", 22, 0)
+    W.Tip(e, NEED_LABEL[role])
     form.needs[role] = e
-    x = x + 112
+    form.needBoxes[role] = box
+    x = x + 84
   end
 
   y = y - 54
-  labeled(form, "Chef de raid", pad, y)
+  labeled(form, "Chef", pad, y)
   form.lead = W.Edit(form, 170, 26, "facultatif", 40)
   form.lead:SetPoint("TOPLEFT", pad, y - 16)
   labeled(form, "Rendez-vous", pad + 182, y)
@@ -443,30 +472,71 @@ function Tab:BuildForm(f, w, h)
   end)
   form.error = T.Text(form, "semi", 12, C.amber)
   form.error:SetPoint("BOTTOMLEFT", form.save, "TOPLEFT", 0, 10)
+  form.error:SetPoint("RIGHT", -pad, 0)
+end
+
+-- Le type choisi : un raid n'est pas pour les membres ; un donjon propose cinq places et 1/1/3.
+function Tab:SetFormKind(k, fromOpen)
+  local form = self.form
+  if k == "raid" and not DR.Guild:IAmOfficer() then
+    UI:Toast("Les raids sont réservés aux officiers.", "warn")
+    return
+  end
+  form.kind = k
+  for kk, bb in pairs(form.kinds) do bb:SetActive(kk == k) end
+  if fromOpen then return end
+  if not form.roleTouched then self:SetFormRoleMode((k == "raid" or k == "donjon") and "comp" or "none") end
+  local d = DEFAULTS[k]
+  if d and not form.editing then
+    if form.cap:GetText() == "" then form.cap:SetText(d.cap) end
+    for _, role in ipairs(Util.ROLES) do
+      if (form.needs[role]:GetText() or "") == "" then form.needs[role]:SetText(d[role]) end
+    end
+  end
+end
+
+function Tab:SetFormRoleMode(mode)
+  local form = self.form
+  form.roleMode = mode
+  for m, b in pairs(form.roleModes) do b:SetActive(m == mode) end
+  for _, box in pairs(form.needBoxes) do box:SetShown(mode == "comp") end
 end
 
 function Tab:OpenForm(ev)
-  if not DR.Guild:IAmOfficer() then return end
+  local officer = DR.Guild:IAmOfficer()
+  if ev then
+    if not Cal:CanEdit(ev) then return end
+  else
+    local ok, why = Cal:CanCreate(officer and "raid" or "donjon")
+    if not ok then UI:Toast(why, "warn"); return end
+  end
   local form = self.form
   form.editing = ev and ev.id or nil
+  form.roleTouched = ev ~= nil
   form.heading:SetText(ev and "Modifier la sortie" or "Nouvelle sortie")
   form.t:SetText(ev and ev.t or "")
-  form.kind = ev and ev.k or "raid"
-  for k, b in pairs(form.kinds) do b:SetActive(k == form.kind) end
+  form.kinds.raid:SetEnabled(officer)
+  self:SetFormKind(ev and ev.k or (officer and "raid" or "donjon"), true)
   local p = ev and Util.DateParts(ev.d)
   form.date:SetText(ev and string.format("%02d/%02d/%d", p.num, date("*t", ev.d).month, p.annee) or "")
   form.time:SetText(ev and p.heure or "21:00")
   form.dur:SetText(ev and tostring(ev.dur or 120) or "150")
   form.cap:SetText(ev and ev.cap and tostring(ev.cap) or "")
-  form.needs.T:SetText(ev and tostring(ev.nt or 0) or "")
-  form.needs.H:SetText(ev and tostring(ev.nh or 0) or "")
-  form.needs.D:SetText(ev and tostring(ev.nd or 0) or "")
+  form.needs.T:SetText(ev and (ev.nt or 0) > 0 and tostring(ev.nt) or "")
+  form.needs.H:SetText(ev and (ev.nh or 0) > 0 and tostring(ev.nh) or "")
+  form.needs.D:SetText(ev and (ev.nd or 0) > 0 and tostring(ev.nd) or "")
   form.lead:SetText(ev and ev.lead or "")
   form.rdv:SetText(ev and ev.rdv or "")
   form.note:SetText(ev and ev.note or "")
   form.cancelEvent:SetShown(ev ~= nil)
   if ev then form.cancelEvent:SetLabel(ev.st == "cancelled" and "Rétablir la sortie" or "Annuler la sortie") end
   form.error:SetText("")
+  if ev then
+    self:SetFormRoleMode(Cal.WantsRoles(ev) and "comp" or "none")
+  else
+    self:SetFormRoleMode("none")
+    self:SetFormKind(form.kind) -- pose le mode de rôles et les suggestions du type
+  end
   form:Show()
   form.t:SetFocus()
 end
@@ -474,10 +544,12 @@ end
 function Tab:SaveForm()
   local form = self.form
   local d = Util.ParseDateTime(form.date:GetText(), form.time:GetText())
+  local comp = form.roleMode == "comp"
   local rec, err = Cal:SaveEvent({
     id = form.editing, t = form.t:GetText(), k = form.kind, d = d,
     dur = form.dur:GetText(), cap = form.cap:GetText(),
-    nt = form.needs.T:GetText(), nh = form.needs.H:GetText(), nd = form.needs.D:GetText(),
+    nt = comp and form.needs.T:GetText() or 0, nh = comp and form.needs.H:GetText() or 0,
+    nd = comp and form.needs.D:GetText() or 0,
     lead = form.lead:GetText(), rdv = form.rdv:GetText(), note = form.note:GetText(),
   })
   if not rec then
@@ -574,16 +646,20 @@ end
 function Tab:Answer(status)
   local ev = Cal:Get(self.selected)
   if not ev then return end
-  local ok, err = Cal:SetSignup(ev.id, self.char or DR.playerName, status, self.role, self.detail.note:GetText())
+  local ok, state, rank = Cal:SetSignup(ev.id, self.char or DR.playerName, status, self.role, self.detail.note:GetText())
   if ok then
-    UI:Toast("Enregistré : " .. Cal.STATUSES[status].label .. ". Ça part à la guilde, puis au site.", "ok")
+    if state == "wait" then
+      UI:Toast("Complet : tu es en liste d'attente (n° " .. rank .. "). Tu montes tout seul si une place se libère.", "info")
+    else
+      UI:Toast("Enregistré : " .. Cal.STATUSES[status].label .. ". Ça part à la guilde, puis au site.", "ok")
+    end
     -- Le rôle choisi ici devient celui proposé la prochaine fois.
     if (self.char or DR.playerName) == DR.playerName and self.role and self.role ~= DR.Profile:PreferredRole(DR.playerName) then
       DR.Profile:SetPreferredRole(self.role)
     end
     self.editing = false
   else
-    UI:Toast(err, "warn")
+    UI:Toast(state, "warn")
   end
   self:Refresh()
 end
@@ -623,7 +699,11 @@ function Tab:RefreshAnswer()
   else
     d.line:SetText((mine and "Tu viens avec " or "Tu viendrais avec ") .. T.Hex(C.goldText) .. who .. "|r"
       .. (role ~= "" and (", en " .. role:lower()) or ""))
-    if mine then
+    local state, rank = Cal:MyState(ev.id)
+    if mine and state == "wait" then
+      d.state:SetText(T.Hex(C.amber) .. "Complet : tu es en liste d'attente (n° " .. rank .. ").|r" .. T.Hex(C.muted)
+        .. " Tu montes tout seul si une place se libère.|r")
+    elseif mine then
       d.state:SetText(T.Hex(C.green) .. "Ta réponse : " .. Cal.STATUSES[mine.s].label .. "|r" .. T.Hex(C.muted)
         .. " · " .. Util.Ago(mine.u) .. ". Partagée avec la guilde ; les officiers la passent au site.|r")
     else
@@ -636,7 +716,8 @@ end
 -- Relancer (officiers)
 ---------------------------------------------------------------------------
 function Tab:RemindMenu(anchor)
-  if not DR.Guild:IAmOfficer() or not self.selected then return end
+  local ev = self.selected and Cal:Get(self.selected)
+  if not ev or not Cal:CanEdit(ev) then return end
   local seen = Cal:SeenBy(self.selected)
   local items = {}
   items[#items + 1] = { text = "N'ont pas répondu (" .. #seen.pendingNames .. ")", disabled = true }
@@ -664,7 +745,7 @@ function Tab:Refresh()
   self.chips:SetLabel("upcoming", "À venir  " .. #upcoming)
   self.chips:SetLabel("past", "Passées  " .. #past)
   self.pill:Set(self.view == "past" and "Sorties passées" or "Sorties à venir", self.view == "past" and #past or #upcoming)
-  self.newBtn:SetShown(DR.Guild:IAmOfficer())
+  self.newBtn:SetShown(ready and IsInGuild() and true or false)
 
   local all = self.view == "past" and past or upcoming
   local items = all
@@ -717,7 +798,7 @@ function Tab:RefreshDetail()
   d.iconBox.icon:SetTexture(T.KIND_ICON[ev.k or "raid"] or T.KIND_ICON.autre)
   d.title:SetText(ev.t)
   local dur = ev.dur and ev.dur > 0 and (" · " .. (Util.Duration(ev.dur * 60) or "")) or ""
-  local cap = ev.cap and (" · " .. ev.cap .. " joueurs") or ""
+  local cap = ev.cap and (" · " .. ev.cap .. " places") or ""
   local p = Util.DateParts(ev.d)
   d.sub:SetText(kind.label .. " · " .. p.jourLong .. " " .. p.num .. " " .. p.moisLong .. " à " .. p.heure .. dur .. cap
     .. " · " .. Util.Until(ev.d))
@@ -727,7 +808,8 @@ function Tab:RefreshDetail()
   else d.badge:Hide() end
 
   local info = {}
-  if ev.lead then info[#info + 1] = T.Hex(C.muted) .. "Chef de raid :|r " .. ev.lead end
+  if ev.own then info[#info + 1] = T.Hex(C.muted) .. "Organisateur :|r " .. Util.ShortName(ev.own) end
+  if ev.lead then info[#info + 1] = T.Hex(C.muted) .. "Chef :|r " .. ev.lead end
   if ev.rdv then info[#info + 1] = T.Hex(C.muted) .. "Rendez-vous :|r " .. ev.rdv end
   local line = table.concat(info, "   ")
   if ev.note then line = line .. (line ~= "" and "\n" or "") .. T.Hex(C.muted) .. "Note :|r " .. ev.note end
@@ -745,8 +827,19 @@ function Tab:RefreshDetail()
       bar:Set(math.min(1, ratio), ratio >= 1 and "green" or (ratio >= 0.5 and "gold" or "red"), BAR_LABEL[role] .. " " .. have .. "/" .. need)
     end
   end
+  -- Sans rôle mais avec des places : une barre « Places ».
+  local places = Cal.Capacity(ev)
+  d.capBar:SetShown(places ~= nil and not anyNeed)
+  if places and not anyNeed then
+    local ratio = counts.yes / places
+    d.capBar:Set(math.min(1, ratio), ratio >= 1 and "green" or "gold", "Places " .. counts.yes .. "/" .. places)
+  end
   local missing = Cal:MissingText(ev, counts)
-  if missing then
+  local full = places and counts.yes >= places
+  if full then
+    d.missing:SetText("Complet" .. (counts.wait > 0 and (" · " .. counts.wait .. " en attente") or ""))
+    T.Color(d.missing, C.green)
+  elseif missing then
     d.missing:SetText(missing)
     T.Color(d.missing, C.amber)
   elseif anyNeed then
@@ -757,11 +850,13 @@ function Tab:RefreshDetail()
   end
 
   local officer = DR.Guild:IAmOfficer()
-  d.editBtn:SetShown(officer)
-  d.lockBtn:SetShown(officer and ev.st ~= "cancelled")
+  local canEdit = Cal:CanEdit(ev)
+  d.editBtn:SetShown(canEdit)
+  d.lockBtn:SetShown(canEdit and ev.st ~= "cancelled")
   d.lockBtn:SetLabel(ev.st == "closed" and "Rouvrir" or "Fermer")
-  d.seen:SetShown(officer)
-  if officer then
+  d.seen:SetShown(canEdit)
+  d.seenLabel:SetText(officer and "OFFICIERS" or "ORGANISATEUR")
+  if canEdit then
     local seen = Cal:SeenBy(ev.id)
     d.seenText:SetText(T.Hex(C.green) .. seen.answered .. "|r ont répondu · " .. T.Hex(C.amber) .. seen.pending
       .. "|r pas encore · " .. T.Hex(C.amber) .. seen.noAddon .. "|r sans add-on")
@@ -778,21 +873,26 @@ function Tab:RefreshDetail()
   end
   self:RefreshAnswer()
 
-  -- Liste des inscrits par réponse.
+  -- Liste des inscrits par réponse, puis la liste d'attente (dans l'ordre).
   local rows, groups, total = {}, {}, 0
-  for _, s in ipairs(Cal:Signups(ev.id)) do
-    groups[s.s] = groups[s.s] or {}
-    table.insert(groups[s.s], s)
+  for _, e in ipairs(Cal:Entries(ev.id)) do
+    local key = e.state == "wait" and "wait" or e.s.s
+    groups[key] = groups[key] or {}
+    table.insert(groups[key], e)
     total = total + 1
   end
   d.signHeader:SetLabel("Inscrits", total)
-  for _, st in ipairs(Cal.STATUS_ORDER) do
+  local order = { "yes", "maybe", "bench", "wait", "no" }
+  for _, st in ipairs(order) do
     local g = groups[st]
     if g and #g > 0 then
-      local sc = statusColor(st)
+      local sc = st == "wait" and C.amber or statusColor(st)
       rows[#rows + 1] = { text = T.Hex(sc) .. GROUP_LABEL[st] .. " (" .. #g .. ")|r" }
-      for _, s in ipairs(g) do
-        local txt = "   " .. (wantsRoles(ev) and (T.RoleIcon(s.r, 12, C.brume) .. "  ") or "") .. T.Hex(C.goldText) .. Util.ClassName(s.c, s.cl or DR.Profile:ClassOf(s.c)) .. "|r"
+      for _, e in ipairs(g) do
+        local s = e.s
+        local txt = "   " .. (st == "wait" and (T.Hex(C.amber) .. e.rank .. ".|r ") or "")
+          .. (wantsRoles(ev) and (T.RoleIcon(s.r, 12, C.brume) .. "  ") or "") .. T.Hex(C.goldText)
+          .. Util.ClassName(s.c, s.cl or DR.Profile:ClassOf(s.c)) .. "|r"
         if s.m then txt = txt .. T.Hex(C.muted) .. "  « " .. s.m .. " »|r" end
         if not DR.Guild:IsMember(s.c) and next(DR.Guild.members) then
           txt = txt .. T.Hex(C.muted) .. "  (hors guilde)|r"

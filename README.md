@@ -27,11 +27,25 @@ rouge, puis Peut-être, Remplaçant, Absent. Changer de rôle après avoir répo
 met la réponse à jour tout de suite, et le rôle choisi est proposé la fois
 suivante. Sans rôle demandé (soirée, entraide), il n'y a rien à choisir.
 « Modifier » ouvre le choix du perso et le petit mot.
-Trois barres montrent ce qui manque (tanks, soins, DPS). Les officiers créent,
-modifient, ferment ou annulent les sorties en jeu ; celles du site arrivent par
-le Pont. Pour eux seulement : combien ont répondu, combien n'ont pas répondu,
-combien n'ont pas l'add-on, et « Relancer » (qui chuchoter). Une bande ambre
-« Redemander » n'apparaît que si la guilde ne répond plus.
+Trois barres montrent ce qui manque (tanks, soins, DPS), ou une barre « Places »
+quand la sortie n'a pas de rôle mais un nombre de places.
+
+**Tout membre peut créer une sortie** (« + Nouvelle sortie ») : donjon, soirée ou
+autre. **Les raids sont réservés aux officiers.** Chacun modifie, ferme, annule et
+supprime les siennes ; les officiers agissent sur toutes ; celles du site arrivent
+par le Pont. Un membre a au plus 5 sorties à venir et ne programme pas à plus de
+60 jours. Le formulaire propose : un titre, un type, la date et l'heure, les
+**places** (vide ou 0 : pas de limite), les **rôles** (« Sans rôle » pour une soirée
+de guilde, ou « Composition » : tanks, soins, DPS voulus), un chef, un rendez-vous
+et une note. Un donjon propose cinq places et 1 tank, 1 soin, 3 DPS.
+Quand c'est plein, les suivants passent en **liste d'attente**, dans l'ordre
+d'inscription, et montent tout seuls si une place se libère. « Peut-être » et
+« Remplaçant » ne prennent pas de place. Les add-ons refusent ce qu'un membre n'a
+pas le droit de faire (un raid, la sortie d'un autre).
+
+Le créateur et les officiers voient en plus : combien ont répondu, combien n'ont
+pas répondu, combien n'ont pas l'add-on, et « Relancer » (qui chuchoter). Une bande
+ambre « Redemander » n'apparaît que si la guilde ne répond plus.
 
 **Artisans** — chaque artisan ouvre sa fenêtre de métier une fois : ses
 recettes sont lues et partagées. Une seule vue : les métiers en icônes, une

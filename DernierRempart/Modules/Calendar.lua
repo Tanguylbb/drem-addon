@@ -2,12 +2,21 @@
 --
 -- Sortie ("events") :
 --   id, t (titre), k (raid|donjon|soiree|autre), d (début, horodatage),
---   dur (durée en minutes), cap (places), nt/nh/nd (tanks, soins, DPS voulus),
+--   dur (durée en minutes), cap (places ; absent = pas de limite),
+--   nt/nh/nd (tanks, soins, DPS voulus ; tous à 0 = sortie sans rôle),
 --   lead (chef de raid), rdv (rendez-vous), note, st (open|closed|cancelled),
---   lock (fermeture des inscriptions, facultatif), src ("site" ou "jeu")
+--   lock (fermeture des inscriptions, facultatif), src ("site" ou "jeu"),
+--   own (perso qui a créé la sortie : il peut la modifier, la fermer, la
+--   supprimer ; les officiers le peuvent toujours), ap (1 = inscriptions sur
+--   validation du créateur)
 -- Inscription ("signups") :
 --   e (id de la sortie), c (perso), cl (classe), r (T|H|D),
---   s (yes|maybe|bench|no), m (petit mot), acc (compte)
+--   s (yes|maybe|bench|no), m (petit mot), acc (compte),
+--   ft (quand il s'est mis « Présent » : l'ordre de la liste d'attente)
+--
+-- Qui peut quoi : les officiers créent tout. Un membre crée donjons, soirées et
+-- autres (pas les raids), au plus MAX_ACTIVE sorties à venir à la fois, et
+-- gère les siennes. Les autres add-ons refusent le reste (Sync:Accept).
 
 local _, DR = ...
 local Cal = DR:NewModule("Calendar")
@@ -30,6 +39,8 @@ Cal.STATUSES = {
 Cal.STATUS_ORDER = { "yes", "maybe", "bench", "no" }
 
 local ONGOING = 4 * 3600 -- une sortie reste « à venir » 4 h après son début
+Cal.MAX_ACTIVE = 5           -- sorties à venir qu'un membre (non officier) peut avoir à la fois
+Cal.MAX_AHEAD = 60 * 86400   -- pas plus de 60 jours devant
 
 ---------------------------------------------------------------------------
 -- Lecture
@@ -68,12 +79,79 @@ function Cal:Signups(eventId)
   return list
 end
 
+-- Un rôle est-il demandé ? (Sinon : soirée, entraide… personne n'a de rôle.)
+function Cal.WantsRoles(ev)
+  return ev ~= nil and ((ev.nt or 0) + (ev.nh or 0) + (ev.nd or 0)) > 0
+end
+
+-- Les places : absent ou 0 = pas de limite.
+function Cal.Capacity(ev)
+  local cap = ev and tonumber(ev.cap) or 0
+  return cap > 0 and cap or nil
+end
+
+local function queueTime(s) return s.ft or s.u or 0 end
+
+-- Les inscrits d'une sortie, chacun avec son état :
+--   in      : compte dans la sortie
+--   wait    : liste d'attente (plus de place) ; rank = son rang. Les « Présent » sont
+--             servis dans l'ordre où ils se sont inscrits ; une place libérée est
+--             donnée au suivant, sans rien faire (tout le monde calcule pareil).
+--   no      : absent
+-- Triés : réponse, rôle, nom.
+function Cal:Entries(eventId)
+  local ev = type(eventId) == "table" and eventId or self:Get(eventId)
+  local id = type(eventId) == "table" and eventId.id or eventId
+  local entries, yes = {}, {}
+  for _, s in ipairs(Store:List("signups", function(x) return x.e == id end)) do
+    local e = { s = s, state = (s.s == "no") and "no" or "in" }
+    entries[#entries + 1] = e
+    if e.state == "in" and s.s == "yes" then yes[#yes + 1] = e end
+  end
+  local cap = Cal.Capacity(ev)
+  if cap and #yes > cap then
+    table.sort(yes, function(a, b)
+      local ta, tb = queueTime(a.s), queueTime(b.s)
+      if ta ~= tb then return ta < tb end
+      return a.s.c < b.s.c
+    end)
+    for i = cap + 1, #yes do
+      yes[i].state = "wait"
+      yes[i].rank = i - cap
+    end
+  end
+  table.sort(entries, function(a, b)
+    local oa = a.state == "wait" and 5 or (Cal.STATUSES[a.s.s] and Cal.STATUSES[a.s.s].order or 9)
+    local ob = b.state == "wait" and 5 or (Cal.STATUSES[b.s.s] and Cal.STATUSES[b.s.s].order or 9)
+    if oa ~= ob then return oa < ob end
+    if a.state == "wait" then return a.rank < b.rank end
+    if (a.s.r or "") ~= (b.s.r or "") then return (a.s.r or "Z") < (b.s.r or "Z") end
+    return a.s.c < b.s.c
+  end)
+  return entries
+end
+
+-- Mon état dans la sortie (voir Entries) et mon rang d'attente, s'il y en a un.
+function Cal:MyState(eventId)
+  local mine = self:MySignup(eventId)
+  if not mine then return nil end
+  for _, e in ipairs(self:Entries(eventId)) do
+    if e.s.c == mine.c then return e.state, e.rank, mine end
+  end
+  return nil
+end
+
 function Cal:Counts(eventId)
-  local c = { yes = 0, maybe = 0, bench = 0, no = 0, T = 0, H = 0, D = 0, total = 0 }
-  for _, s in ipairs(Store:List("signups", function(x) return x.e == eventId end)) do
-    if c[s.s] then c[s.s] = c[s.s] + 1 end
-    if s.s == "yes" and c[s.r or ""] then c[s.r] = c[s.r] + 1 end
+  local c = { yes = 0, maybe = 0, bench = 0, no = 0, wait = 0, T = 0, H = 0, D = 0, total = 0 }
+  for _, e in ipairs(self:Entries(eventId)) do
     c.total = c.total + 1
+    if e.state == "wait" then
+      c.wait = c.wait + 1
+    else
+      local st = e.s.s
+      if c[st] then c[st] = c[st] + 1 end
+      if st == "yes" and c[e.s.r or ""] then c[e.s.r] = c[e.s.r] + 1 end
+    end
   end
   return c
 end
@@ -178,9 +256,63 @@ function Cal:Next()
 end
 
 ---------------------------------------------------------------------------
+-- Droits
+---------------------------------------------------------------------------
+-- Deux persos sont-ils au même joueur ? (même nom, ou même compte)
+function Cal.SameOwner(a, b)
+  if not a or not b then return false end
+  if Util.SameName(a, b) then return true end
+  local ca, cb = Store:Get("chars", a), Store:Get("chars", b)
+  return (ca and cb and ca.acc ~= nil and ca.acc == cb.acc) or false
+end
+
+-- Mes sorties à venir (celles que j'ai créées, annulées exclues).
+function Cal:MyActiveCount()
+  local now = Util.Now()
+  return #Store:List("events", function(e)
+    return e.own ~= nil and DR.Profile:IsMine(e.own) and e.st ~= "cancelled" and (e.d or 0) >= now - ONGOING
+  end)
+end
+
+-- Puis-je créer une sortie de ce type ? Rend true, ou false et la raison.
+function Cal:CanCreate(kind)
+  if DR.Guild:IAmOfficer() then return true end
+  if kind == "raid" then return false, "Les raids sont réservés aux officiers." end
+  if self:MyActiveCount() >= Cal.MAX_ACTIVE then
+    return false, "Tu as déjà " .. Cal.MAX_ACTIVE .. " sorties à venir : annule-en une ou attends qu'elle passe."
+  end
+  return true
+end
+
+-- Puis-je modifier, fermer, annuler ou supprimer cette sortie ?
+function Cal:CanEdit(ev)
+  if not ev then return false end
+  if DR.Guild:IAmOfficer() then return true end
+  return ev.own ~= nil and DR.Profile:IsMine(ev.own)
+end
+
+-- Règle de réception (Sync:Accept) : cette version de la sortie, venue de rec.by,
+-- est-elle permise ? Les officiers et le site : tout. Un membre : seulement ses
+-- propres sorties, jamais un raid.
+function Cal.AcceptEvent(rec, old)
+  local Guild = DR.Guild
+  local by = rec.by
+  if by == "site" or Guild:IsOfficer(by) then return true end
+  local live = old and not old.del and old or nil
+  if rec.del then
+    return live ~= nil and live.own ~= nil and Cal.SameOwner(live.own, by)
+  end
+  if rec.k == "raid" then return false end
+  if rec.own == nil or not Cal.SameOwner(rec.own, by) then return false end
+  if live and not (live.own and Cal.SameOwner(live.own, rec.own)) then return false end
+  return true
+end
+
+---------------------------------------------------------------------------
 -- Écriture
 ---------------------------------------------------------------------------
--- Rend true, ou false et la raison.
+-- Rend true, puis mon état dans la sortie (« in » ou « wait ») et mon rang d'attente ;
+-- ou false et la raison.
 function Cal:SetSignup(eventId, charName, status, role, note)
   local ev = self:Get(eventId)
   if not ev then return false, "Sortie introuvable." end
@@ -193,41 +325,65 @@ function Cal:SetSignup(eventId, charName, status, role, note)
   if not DR.Profile:IsMine(charName) and not officer then
     return false, "Tu ne peux inscrire que tes propres persos."
   end
-  -- Un seul perso par compte et par sortie.
+  -- Un seul perso par compte et par sortie. Changer de perso garde sa place d'attente.
+  local first
   for _, s in ipairs(Store:List("signups", function(x) return x.e == eventId end)) do
     if s.c ~= charName and DR.Profile:IsMine(s.c) and DR.Profile:IsMine(charName) then
+      if s.s == "yes" and s.ft then first = math.min(first or s.ft, s.ft) end
       Store:Delete("signups", Store.KeyOf("signups", s))
     end
   end
   local char = Store:Get("chars", charName) or DR.db.myChars[charName] or {}
+  -- Place dans la file : on la garde tant qu'on reste « Présent » ; si on quitte puis
+  -- qu'on revient, on repart au bout de la file.
+  local before = Store:Get("signups", eventId .. "|" .. charName)
+  local ft
+  if status == "yes" then
+    ft = (before and before.s == "yes" and before.ft) or first or Util.Now()
+  end
   Store:Put("signups", {
     e = eventId, c = charName, cl = char.cl or DR.Profile:ClassOf(charName),
     r = role or char.r or "D", s = status,
     m = (note and note ~= "") and Util.Truncate(note, 60) or nil,
-    acc = char.acc,
+    acc = char.acc, ft = ft,
   })
   DR:Emit("SIGNUP_CHANGED", eventId)
-  return true
+  local state, rank = self:MyState(eventId)
+  return true, state, rank
 end
 
 function Cal:NewId()
   return "g" .. Util.ToBase36(Util.Now()) .. Util.RandomId(3)
 end
 
--- Crée ou modifie une sortie (officiers).
+-- Crée ou modifie une sortie. Officiers : toutes ; membres : les leurs, sans raid.
+-- Rend l'enregistrement écrit, ou nil et la raison.
 function Cal:SaveEvent(fields)
-  if not DR.Guild:IAmOfficer() then return nil, "Réservé aux officiers." end
   local t = Util.Trim(fields.t)
+  local old = fields.id and Store:GetRaw("events", fields.id)
+  if old and old.del then old = nil end
+  local officer = DR.Guild:IAmOfficer()
+  local kind = Cal.KINDS[fields.k] and fields.k or (old and old.k) or "raid"
+  if old then
+    if not self:CanEdit(old) then return nil, "Tu ne peux modifier que tes propres sorties." end
+    if not officer and kind == "raid" then return nil, "Les raids sont réservés aux officiers." end
+  else
+    local ok, why = self:CanCreate(kind)
+    if not ok then return nil, why end
+  end
   if t == "" then return nil, "Donne un titre à la sortie." end
   if not fields.d then return nil, "Date ou heure invalide (JJ/MM et HH:MM)." end
-  local old = fields.id and Store:GetRaw("events", fields.id)
+  if not officer and fields.d > Util.Now() + Cal.MAX_AHEAD then
+    return nil, "Pas plus de 60 jours devant."
+  end
+  local cap = tonumber(fields.cap)
   local rec = {
     id = fields.id or self:NewId(),
     t = Util.Truncate(t, 80),
-    k = Cal.KINDS[fields.k] and fields.k or "raid",
+    k = kind,
     d = fields.d,
     dur = tonumber(fields.dur) or 120,
-    cap = tonumber(fields.cap) or nil,
+    cap = (cap and cap > 0) and math.floor(cap) or nil,
     nt = tonumber(fields.nt) or 0,
     nh = tonumber(fields.nh) or 0,
     nd = tonumber(fields.nd) or 0,
@@ -237,6 +393,8 @@ function Cal:SaveEvent(fields)
     st = fields.st or (old and not old.del and old.st) or "open",
     lock = fields.lock,
     src = (old and old.src) or "jeu",
+    own = old and old.own or ((not old) and DR.playerName or nil),
+    ap = fields.ap and 1 or nil,
   }
   local written = Store:Put("events", rec)
   DR:Emit("EVENTS_CHANGED")
@@ -244,9 +402,8 @@ function Cal:SaveEvent(fields)
 end
 
 function Cal:SetStatus(id, st)
-  if not DR.Guild:IAmOfficer() then return false end
   local ev = Store:Get("events", id)
-  if not ev then return false end
+  if not ev or not self:CanEdit(ev) then return false end
   local rec = Util.Copy(ev)
   rec.st = st
   Store:Put("events", rec)
@@ -255,7 +412,8 @@ function Cal:SetStatus(id, st)
 end
 
 function Cal:Delete(id)
-  if not DR.Guild:IAmOfficer() then return false end
+  local ev = Store:Get("events", id)
+  if not ev or not self:CanEdit(ev) then return false end
   Store:Delete("events", id)
   DR:Emit("EVENTS_CHANGED")
   return true

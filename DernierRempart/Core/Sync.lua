@@ -123,7 +123,8 @@ function Sync:Accept(ds, rec)
   local Guild = DR.Guild
   if not next(Guild.members) then return true end -- liste pas encore chargée
   if ds == "events" then
-    return Guild:IsOfficer(rec.by) or rec.by == "site"
+    -- Officiers et site : tout. Un membre : seulement ses propres sorties, jamais un raid.
+    return DR.Calendar.AcceptEvent(rec, Store:GetRaw("events", Store.KeyOf("events", rec)))
   end
   if ds == "meta" then
     if rec.id == "config" then
