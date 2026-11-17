@@ -1,5 +1,5 @@
 -- Fenêtre principale, dans les codes des fenêtres du jeu : cadre bronze, barre de
--- titre fine, médaillon à la tour, bouton fermer rouge, onglets d'icônes sur le
+-- titre fine, blason du site, bouton fermer rouge, onglets d'icônes sur le
 -- bord droit, et une ligne en bas qui dit si la synchro est à jour.
 
 local _, DR = ...
@@ -77,14 +77,14 @@ function UI:Build()
   self.sep:SetText("·")
   self.section = T.Text(head, "body", 13, C.ivory)
 
-  -- Médaillon : la tour du blason, au coin, comme le portrait des fenêtres du jeu.
+  -- Le blason du site, au coin, là où les fenêtres du jeu mettent leur portrait.
   local medal = CreateFrame("Frame", nil, f)
-  medal:SetSize(70, 70)
-  medal:SetPoint("TOPLEFT", -18, 18)
+  medal:SetSize(math.floor(78 * T.LOGO_RATIO + 0.5), 78)
+  medal:SetPoint("TOPLEFT", -14, 20)
   medal:SetFrameLevel(f:GetFrameLevel() + 12)
   medal.tex = medal:CreateTexture(nil, "ARTWORK")
   medal.tex:SetAllPoints()
-  medal.tex:SetTexture(T.Icon("medaillon"))
+  T.SetLogo(medal.tex)
   medal:EnableMouse(true)
   W.Tip(medal, "Dernier Rempart", "Version " .. DR.version .. " · " .. DR.SITE, "/rempart pour la liste des commandes.")
   self.medal = medal

@@ -6,8 +6,8 @@ de raid tout faits : les sorties, les inscriptions, les artisans et la fiche de
 chaque perso sont les mêmes en jeu et sur le site, sans rien taper deux fois.
 Il reprend le style des fenêtres du jeu (cuir brun, cadre bronze, noms dorés,
 bouton rouge pour l'action principale) et n'y met que la touche du Dernier
-Rempart : la tour dans le médaillon, une fiche sur fond marine, le nom en
-Marcellus dans la barre de titre. Vert quand c'est plein, ambre quand il manque
+Rempart : le blason du site au coin de la fenêtre, une fiche sur fond marine,
+le nom en Marcellus dans la barre de titre. Vert quand c'est plein, ambre quand il manque
 du monde, rouge quand c'est en retard.
 
 ## Ce qu'il fait
@@ -158,7 +158,7 @@ DernierRempart/
   Core/      démarrage, outils, JSON, Base64, magasin, guilde, messages, synchro
   Modules/   fiche perso, sorties, artisans, carte (positions), effort de guerre, banque, pont
   UI/        style, composants, fenêtre et écrans, minicarte, épingles
-  Media/     médaillon, icônes d'onglets, pictos de rôle, police Marcellus (licence OFL)
+  Media/     blason du site, icônes d'onglets, pictos de rôle, police Marcellus (licence OFL)
 tools/php/   DrPont.php : lecture et écriture des codes DR2 pour le site
 tools/relais/ gabarit du mini add-on de données déposé par le relais
 ```

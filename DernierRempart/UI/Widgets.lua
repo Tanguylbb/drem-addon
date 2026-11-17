@@ -907,10 +907,10 @@ function W.Navy(parent, withCorner)
   T.Border(f, BLACK, 1)
   T.InnerBorder(f, C.navyLine, 1, 1)
   f.mark = f:CreateTexture(nil, "BACKGROUND", nil, 3)
-  f.mark:SetSize(190, 190)
+  f.mark:SetSize(math.floor(190 * T.LOGO_RATIO + 0.5), 190)
   f.mark:SetPoint("BOTTOMRIGHT", -26, 16)
-  f.mark:SetTexture(T.Icon("tour"))
-  f.mark:SetVertexColor(1, 1, 1, 0.07)
+  T.SetLogo(f.mark)
+  f.mark:SetVertexColor(1, 1, 1, 0.09)
   if withCorner then corner(f, C.goldPale) end
   return f
 end

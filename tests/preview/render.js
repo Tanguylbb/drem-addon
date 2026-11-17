@@ -56,7 +56,11 @@ function page(data) {
           if (m && png(m[1])) {
             const u = png(m[1]);
             if (it.vertex) st = `background:${rgba(it.vertex)};-webkit-mask:url(${u}) center/contain no-repeat;mask:url(${u}) center/contain no-repeat;`;
-            else st = `background:url(${u}) center/contain no-repeat;`;
+            else if (it.tc) {
+              // Texture recadrée (SetTexCoord) : on agrandit l'image et on la décale.
+              const [l, r, t, b] = it.tc, bw = it.w / (r - l), bh = it.h / (b - t);
+              st = `background:url(${u}) ${-l * bw}px ${-t * bh}px / ${bw}px ${bh}px no-repeat;`;
+            } else st = `background:url(${u}) center/contain no-repeat;`;
           } else if (/CheckBox-Check/.test(it.img)) {
             st = 'background:none;color:#F6D55A;font:bold 16px sans-serif;display:flex;align-items:center;justify-content:center;';
             html += `<div class="r" style="${box}${st}">✓</div>`;

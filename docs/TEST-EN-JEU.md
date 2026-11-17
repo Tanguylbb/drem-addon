@@ -20,7 +20,7 @@ capture) ou « bizarre ».
 
 ## 1. Fenêtre et style (3 min)
 
-- [ ] `/rempart` ouvre la fenêtre : médaillon à la tour en haut à gauche, bouton
+- [ ] `/rempart` ouvre la fenêtre : le blason du site en haut à gauche, bouton
       fermer rouge, « Dernier Rempart » en Marcellus dans la barre de titre,
       onglets d'icônes sur le bord droit.
 - [ ] Le texte est dans la police du jeu, accents compris ; aucun carré ni point
@@ -149,8 +149,9 @@ L'interface reprend les fenêtres du jeu avec des pièces simples (aplats, filet
 quelques images). Rien de tout ça n'a pu être vu dans le vrai client : c'est
 l'essentiel de ce test.
 
-- [ ] Le médaillon (tour dorée sur fond marine) est rond, net, et déborde du coin
-      haut gauche comme le portrait des autres fenêtres. S'il est carré ou
+- [ ] Le blason (écu bleu nuit, liseré et tour dorés, le même que sur le site) est
+      net et déborde du coin haut gauche comme le portrait des autres fenêtres. Il
+      doit garder ses proportions (plus haut que large). S'il est écrasé, flou ou
       absent, le noter.
 - [ ] Le bouton fermer (rouge, croix dorée) est visible au coin haut droit.
 - [ ] Les cinq icônes d'onglet sont visibles sur le bord droit, nettes, sans
@@ -160,7 +161,7 @@ l'essentiel de ce test.
       le fichier : noter le métier ou le type.
 - [ ] Les barres (rôles, objectifs) montrent un dégradé et un chiffre au milieu,
       lisible sur le fond noir comme sur la couleur.
-- [ ] La fiche à droite est sur fond marine, avec la tour très pâle en bas à droite.
+- [ ] La fiche à droite est sur fond marine, avec le blason très pâle en bas à droite.
 - [ ] Les listes défilent à la molette, la barre de défilement est visible.
 - [ ] Aucun texte n'est coupé ou ne déborde de son cadre (noter l'écran et la
       ligne). Les noms longs (« Profondeurs de Brassenoire ») tiennent.

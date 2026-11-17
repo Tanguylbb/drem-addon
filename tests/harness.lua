@@ -109,6 +109,7 @@ function Methods:SetColorTexture(r, g, b, a) self._color, self._tex, self._grad 
 function Methods:SetTexture(t) self._tex, self._color = t, nil end
 function Methods:SetGradient(orient, c1, c2) self._grad, self._color = { orient = orient, from = c1, to = c2 }, nil end
 function Methods:SetVertexColor(r, g, b, a) self._vertex = { r, g, b, a or 1 } end
+function Methods:SetTexCoord(l, r, t, b) self._tc = { l, r, t, b } end
 function Methods:SetTextColor(r, g, b, a) self._tcolor = { r, g, b, a or 1 } end
 function Methods:SetJustifyH(j) self._justify = j end
 function Methods:GetWidth() return self._w end

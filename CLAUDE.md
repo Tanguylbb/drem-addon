@@ -16,6 +16,9 @@
   jamais écarter une alerte « se chevauchent » : les testeurs l'ont vue en jeu
   (0.4.0). Tout texte dont la longueur varie (nom, titre, recette) doit être
   borné des deux côtés (deux ancrages ou une largeur) pour se couper par « … ».
+- Le logo est celui du site (blason SVG de dernier-rempart.eu, copié dans
+  `tools/media/logo-site.svg`). Ne jamais le redessiner ni en inventer un autre :
+  `python3 tools/media/make_media.py` le rend en `Media/logo.tga` et `minimap.tga`.
 - Données partagées : passer par `DR.Store` (Put, Delete, Merge). Ne jamais
   écrire directement dans la sauvegarde ; la synchro diffuse toute seule les
   écritures locales.

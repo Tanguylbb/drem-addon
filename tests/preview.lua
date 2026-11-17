@@ -262,6 +262,7 @@ local function dump(name)
             if c._grad then it.grad = { orient = c._grad.orient, from = color(c._grad.from), to = color(c._grad.to) } end
             if type(c._tex) == "string" then it.img = c._tex elseif c._tex then it.img = "#" .. tostring(c._tex) end
             it.vertex = color(c._vertex)
+            it.tc = c._tc
             if c._layer == "HIGHLIGHT" then it.k = nil end
           else
             it.text = c._text or ""

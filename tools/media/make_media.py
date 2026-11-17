@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
-"""Dessine les images du style « fidèle au jeu » : médaillon à la tour et icônes
-des onglets. Écrit des TGA 32 bits dans DernierRempart/Media (le jeu lit les TGA).
+"""Fabrique les images de l'add-on : le blason du site (logo.tga, minimap.tga) et les
+icônes des onglets. Écrit des TGA 32 bits dans DernierRempart/Media (le jeu lit les TGA).
+
+Le blason n'est pas redessiné : il vient du SVG du site (tools/media/logo-site.svg,
+copie de https://dernier-rempart.eu/favicon.svg), rendu par Chromium
+(tools/media/render_logo.js).
 
 Usage : python3 tools/media/make_media.py   (depuis la racine du dépôt)
-Nécessite Pillow. Les TGA produits sont gardés dans le dépôt : ce script n'est
-utile que pour les retoucher.
+Nécessite Pillow, Node et Playwright. Les TGA produits sont gardés dans le dépôt :
+ce script n'est utile que pour les retoucher.
 """
 import math
 import os
+import subprocess
+import tempfile
 from PIL import Image, ImageDraw, ImageChops
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "..", "DernierRempart", "Media")
@@ -27,30 +33,6 @@ def vgrad(w, h, top, bottom):
         c = tuple(int(t[i] + (b[i] - t[i]) * k) for i in range(3)) + (255,)
         for x in range(w):
             px[x, y] = c
-    return img
-
-
-def dgrad(w, h, c1, c2):
-    """Dégradé en diagonale (haut gauche -> bas droite)."""
-    img = Image.new("RGBA", (w, h))
-    px = img.load()
-    a, b = rgb(c1), rgb(c2)
-    for y in range(h):
-        for x in range(w):
-            k = (x + y) / (w + h - 2)
-            px[x, y] = tuple(int(a[i] + (b[i] - a[i]) * k) for i in range(3)) + (255,)
-    return img
-
-
-def rgrad(w, h, inner, outer, cx=0.4, cy=0.3):
-    img = Image.new("RGBA", (w, h))
-    px = img.load()
-    a, b = rgb(inner), rgb(outer)
-    mx = math.hypot(max(cx, 1 - cx) * w, max(cy, 1 - cy) * h)
-    for y in range(h):
-        for x in range(w):
-            k = min(1, math.hypot(x - cx * w, y - cy * h) / mx)
-            px[x, y] = tuple(int(a[i] + (b[i] - a[i]) * k) for i in range(3)) + (255,)
     return img
 
 
@@ -87,55 +69,40 @@ def s(v):
 GOLD = ("FBE9A0", "B98A25")
 
 
-def tower(base, ox, oy, k, navy="0E1D40"):
-    """La tour du blason, dans une boîte de 34 x 38 posée en (ox, oy), à l'échelle k."""
-    g = vgrad(base.width, base.height, *GOLD)
-    dark = (0x5A, 0x3A, 0x0C, 255)
-
-    def box(x, y, w, h):
-        return [s(ox + x * k), s(oy + y * k), s(ox + (x + w) * k) - 1, s(oy + (y + h) * k) - 1]
-
-    def shapes(d):
-        for r in ((7, 4, 5, 7), (14.5, 4, 5, 7), (22, 4, 5, 7), (7, 11, 20, 21), (3, 31, 28, 5)):
-            d.rectangle(box(*r), fill=255)
-    fill(base, g, shapes)
-    d = ImageDraw.Draw(base)
-    for r in ((7, 4, 5, 7), (14.5, 4, 5, 7), (22, 4, 5, 7), (7, 11, 20, 21), (3, 31, 28, 5)):
-        d.rectangle(box(*r), outline=dark, width=max(1, s(0.9 * k)))
-    nv = rgb(navy) + (255,)
-    d.rectangle(box(14, 26, 6, 5), fill=nv)
-    d.pieslice([s(ox + 14 * k), s(oy + 20 * k), s(ox + 20 * k), s(oy + 26 * k)], 180, 360, fill=nv)
-    d.rectangle(box(10, 15, 3, 6), fill=nv)
-    d.rectangle(box(21, 15, 3, 6), fill=nv)
+# Le blason du site : 48 x 56, donc 6:7. La texture est un carré de 256 : le blason
+# occupe toute la hauteur et est centré ; le code recadre avec Theme.LogoCoords.
+def logo_render(height=1024):
+    """Le blason du site en grand (image RGBA, fond transparent), rendu par Chromium."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    out = os.path.join(tempfile.mkdtemp(), "logo.png")
+    env = dict(os.environ)
+    if "NODE_PATH" not in env:
+        env["NODE_PATH"] = subprocess.check_output(["npm", "root", "-g"], text=True).strip()
+    subprocess.check_call(["node", os.path.join(here, "render_logo.js"), out, str(height)], env=env)
+    return Image.open(out).convert("RGBA")
 
 
-def medallion(n=128):
-    img = canvas(n)
-    W = img.width
-    d = ImageDraw.Draw(img)
-    d.ellipse([0, 0, W - 1, W - 1], fill=(0, 0, 0, 255))
-    ring = dgrad(W, W, "F6DC9A", "5A3C14")
-    fill(img, ring, lambda m: m.ellipse([s(1.5), s(1.5), W - s(1.5) - 1, W - s(1.5) - 1], fill=255))
-    # filets du bronze
-    d = ImageDraw.Draw(img)
-    d.ellipse([s(5), s(5), W - s(5) - 1, W - s(5) - 1], outline=(0x4B, 0x32, 0x13, 255), width=s(1.2))
-    d.ellipse([s(9), s(9), W - s(9) - 1, W - s(9) - 1], fill=(0, 0, 0, 255))
-    disc = rgrad(W, W, "2D4F90", "0A1430", 0.4, 0.3)
-    fill(img, disc, lambda m: m.ellipse([s(10.5), s(10.5), W - s(10.5) - 1, W - s(10.5) - 1], fill=255))
-    # ombre intérieure
-    shade = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    sd = ImageDraw.Draw(shade)
-    sd.ellipse([s(10.5), s(10.5), W - s(10.5) - 1, W - s(10.5) - 1], outline=(0, 0, 0, 120), width=s(3))
-    img = Image.alpha_composite(img, shade)
-    k = 2.1
-    tower(img, (n - 34 * k) / 2, (n - 38 * k) / 2 + 1, k)
-    save(finish(img, n), "medaillon")
+def logo_fit(big, box, height):
+    """Le blason à la hauteur voulue, centré dans un carré transparent de côté box."""
+    w = round(height * big.width / big.height)
+    small = big.resize((w, height), Image.LANCZOS)
+    img = Image.new("RGBA", (box, box), (0, 0, 0, 0))
+    img.alpha_composite(small, ((box - w) // 2, (box - height) // 2))
+    return img
 
 
-def tower_icon(n=64):
-    img = canvas(n)
-    tower(img, (n - 34 * 1.5) / 2, (n - 38 * 1.5) / 2, 1.5)
-    save(finish(img, n), "tour")
+def logo_files(big):
+    save(logo_fit(big, 256, 256), "logo")
+    # Bouton de la minicarte : un disque sombre (le bleu nuit du site) et le blason.
+    n = 128
+    disc = Image.new("RGBA", (n * 4, n * 4), (0, 0, 0, 0))
+    d = ImageDraw.Draw(disc)
+    d.ellipse([0, 0, n * 4 - 1, n * 4 - 1], fill=rgb("0A1220") + (255,))
+    d.ellipse([n * 0.05 * 4, n * 0.05 * 4, n * 4 - n * 0.05 * 4 - 1, n * 4 - n * 0.05 * 4 - 1],
+              outline=rgb("E6C47C") + (150,), width=int(n * 0.03 * 4))
+    shield = logo_fit(big, n * 4, int(n * 4 * 0.70))
+    disc.alpha_composite(shield)
+    save(disc.resize((64, 64), Image.LANCZOS), "minimap")
 
 
 def poly(pts, k=1.0):
@@ -243,17 +210,17 @@ def coche(n=32):
 
 
 def contact_sheet():
-    names = ["medaillon", "tour", "tab_sorties", "tab_artisans", "tab_presents", "tab_effort", "tab_officiers", "croix", "coche"]
+    names = ["logo", "minimap", "tab_sorties", "tab_artisans", "tab_presents", "tab_effort", "tab_officiers", "croix", "coche"]
     sheet = Image.new("RGBA", (len(names) * 140, 140), (30, 24, 18, 255))
     for i, nme in enumerate(names):
         im = Image.open(os.path.join(OUT, nme + ".tga")).convert("RGBA")
+        im = im.resize((128, 128), Image.LANCZOS)
         sheet.alpha_composite(im, (i * 140 + 6, 6))
     return sheet
 
 
 if __name__ == "__main__":
-    medallion(128)
-    tower_icon(64)
+    logo_files(logo_render())
     icon_calendar()
     icon_anvil()
     icon_people()

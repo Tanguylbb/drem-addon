@@ -1,8 +1,9 @@
 -- Style « fidèle au jeu » (maquettes 0.5 révisées) : cuir brun très sombre,
 -- cadre bronze, noms et en-têtes dorés, listes noires, action principale en
 -- rouge sombre (comme « Créer » ou « Invoquer »). Le Dernier Rempart y tient
--- en trois choses : la tour du médaillon, le panneau marine des fiches et le
--- nom en Marcellus dans la barre de titre. Texte courant : la police du jeu.
+-- en trois choses : le blason du site (Media/logo.tga, jamais redessiné), le
+-- panneau marine des fiches et le nom en Marcellus dans la barre de titre.
+-- Texte courant : la police du jeu.
 
 local _, DR = ...
 local T = {}
@@ -185,6 +186,15 @@ end
 
 function T.Icon(name)
   return DR.MEDIA .. name
+end
+
+-- Le blason du site : 48 x 56 (6:7), centré dans une texture carrée. On recadre
+-- les côtés vides pour qu'il garde ses proportions quand on lui donne 6:7.
+T.LOGO_RATIO = 48 / 56
+function T.SetLogo(tex)
+  tex:SetTexture(T.Icon("logo"))
+  local inset = (1 - T.LOGO_RATIO) / 2
+  tex:SetTexCoord(inset, 1 - inset, 0, 1)
 end
 
 -- Icône intégrée au texte, teinte facultative.
